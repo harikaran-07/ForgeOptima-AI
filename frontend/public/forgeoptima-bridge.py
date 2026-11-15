@@ -21,13 +21,44 @@ OLLAMA_BASE = "http://localhost:11434"
 class OllamaBridgeHandler(http.server.BaseHTTPRequestHandler):
     def _set_cors(self):
         self.send_header("Access-Control-Allow-Origin", "*")
-        self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+        self.send_header("Access-Control-Allow-Methods", "GET, POST, DELETE, OPTIONS")
         self.send_header("Access-Control-Allow-Headers", "Content-Type, X-Session-ID")
 
     def do_OPTIONS(self):
         self.send_response(204)
         self._set_cors()
         self.end_headers()
+
+    def do_DELETE(self):
+        length = int(self.headers.get("Content-Length", 0))
+        post_data = self.rfile.read(length) if length > 0 else None
+        target = f"{OLLAMA_BASE}{self.path}"
+        try:
+            req = urllib.request.Request(
+                target,
+                data=post_data,
+                headers={"Content-Type": "application/json"},
+                method="DELETE"
+            )
+            with urllib.request.urlopen(req, timeout=30) as res:
+                body = res.read()
+                self.send_response(res.status)
+                self._set_cors()
+                self.send_header("Content-Type", "application/json")
+                self.end_headers()
+                self.wfile.write(body)
+        except urllib.error.HTTPError as e:
+            self.send_response(e.code)
+            self._set_cors()
+            self.send_header("Content-Type", "application/json")
+            self.end_headers()
+            self.wfile.write(e.read())
+        except Exception as e:
+            self.send_response(502)
+            self._set_cors()
+            self.send_header("Content-Type", "application/json")
+            self.end_headers()
+            self.wfile.write(json.dumps({"error": str(e)}).encode())
 
     def do_GET(self):
         if self.path == "/health":

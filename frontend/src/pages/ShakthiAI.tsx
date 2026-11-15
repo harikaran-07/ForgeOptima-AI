@@ -349,12 +349,21 @@ export default function ShakthiAI() {
         )}
 
         <Link
+          to="/models"
+          className="btn-ghost !py-1.5 !text-[12px] border-electric/30 text-electric hover:bg-electric/10 flex items-center gap-1.5"
+          title="Open AI Model Settings & Storage Manager"
+        >
+          <Database className="h-3.5 w-3.5" />
+          <span>Model Settings</span>
+        </Link>
+
+        <Link
           to="/local-ai"
           className="btn-ghost !py-1.5 !text-[12px] border-violet/30 text-violet hover:bg-violet/10 flex items-center gap-1.5"
           title="Open complete local Ollama download and setup guide"
         >
           <Cpu className="h-3.5 w-3.5" />
-          <span>Local AI Setup</span>
+          <span>Local Setup</span>
         </Link>
 
         <button

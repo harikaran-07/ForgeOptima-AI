@@ -454,7 +454,7 @@ Distinguish measured, simulated, predicted, and estimated data. Answer clearly a
               >
                 {RECOMMENDED_MODELS.map((m) => (
                   <option key={m.id} value={m.id}>
-                    {m.name} ({m.size})
+                    {m.name} ({m.exactSizeFormatted})
                   </option>
                 ))}
               </select>
