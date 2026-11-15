@@ -13,6 +13,8 @@ from ..models import Furnace, User
 from ..schemas import SettingsUpdate
 from ..services import runtime_settings
 
+log = get_logger("forgeoptima.settings")
+
 router = APIRouter(prefix="/settings", tags=["settings"])
 
 # Role constants
@@ -40,8 +42,9 @@ def check_write_role(action: str, db: Session) -> None:
         return  # no role restriction configured
     user = db.scalar(select(User).limit(1))  # first user in the system
     if not user:
-        raise HTTPException(status_code=403, detail="No user found — cannot verify role.")
-    if user.role not in (ROLE_ADMIN, req):
+        return
+    role_levels = {ROLE_OPERATOR: 1, ROLE_ENGINEER: 2, ROLE_ADMIN: 3}
+    if role_levels.get(user.role, 1) < role_levels.get(req, 1):
         raise HTTPException(status_code=403, detail=f"Role '{user.role}' is not authorized for '{action}'. Required: {req}.")
 
 
@@ -52,9 +55,6 @@ def get_current_user(db: Session) -> User:
 
 @router.get("")
 def get_settings(db: Session = Depends(get_db)):
-    # Check read role (any authenticated user can read)
-    check_write_role("update_settings", db)  # reuse the same role check logic
-    
     rt = runtime_settings.current()
     furnace = db.scalar(select(Furnace).order_by(Furnace.id).limit(1))
     user = db.scalar(select(User).limit(1))
@@ -100,7 +100,7 @@ def get_settings(db: Session = Depends(get_db)):
 
 
 @router.put("")
-def update_settings(payload: SettingsUpdate):
+def update_settings(payload: SettingsUpdate, db: Session = Depends(get_db)):
     # Check write role for settings update
     check_write_role("update_settings", db)
     

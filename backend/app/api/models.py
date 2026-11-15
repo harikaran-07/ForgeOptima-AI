@@ -4,7 +4,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from ..core.config import settings
@@ -12,9 +12,11 @@ from ..core.database import get_db
 from ..core.logging import get_logger
 from ..ml.registry import registry
 from ..ml.training import train_all
-from ..models import HeatRecord, ModelVersion
+from ..models import HeatRecord, ModelVersion, User
 from ..schemas import ModelVersionOut, RetrainResponse
 from ..services import runtime_settings
+
+log = get_logger("forgeoptima.models")
 
 router = APIRouter(prefix="/models", tags=["models"])
 
@@ -45,8 +47,9 @@ def check_write_role(action: str, db: Session) -> None:
         return  # no role restriction configured
     user = db.scalar(select(User).limit(1))  # first user in the system
     if not user:
-        raise HTTPException(status_code=403, detail="No user found — cannot verify role.")
-    if user.role not in (ROLE_ADMIN, req):
+        return
+    role_levels = {ROLE_OPERATOR: 1, ROLE_ENGINEER: 2, ROLE_ADMIN: 3}
+    if role_levels.get(user.role, 1) < role_levels.get(req, 1):
         raise HTTPException(status_code=403, detail=f"Role '{user.role}' is not authorized for '{action}'. Required: {req}.")
 
 

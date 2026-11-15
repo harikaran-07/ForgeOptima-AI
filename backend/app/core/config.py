@@ -43,6 +43,7 @@ class Settings(BaseSettings):
         "http://127.0.0.1:5173",
         "http://localhost:4173",
         "http://127.0.0.1:4173",
+        "https://forge-optima-ai.vercel.app",
     ]
 
     # --- Ollama / SHAKTHI AI ----------------------------------------------
@@ -62,6 +63,16 @@ class Settings(BaseSettings):
     # --- ML ----------------------------------------------------------------
     model_dir: str = str(BACKEND_DIR / "artifacts")
     dataset_path: str = str(BACKEND_DIR / "data" / "synthetic_heats.csv")
+
+    @field_validator("database_url", mode="before")
+    @classmethod
+    def _normalize_database_url(cls, value):
+        if isinstance(value, str):
+            if value.startswith("postgres://"):
+                return value.replace("postgres://", "postgresql+psycopg://", 1)
+            if value.startswith("postgresql://") and "+psycopg" not in value:
+                return value.replace("postgresql://", "postgresql+psycopg://", 1)
+        return value
 
     @field_validator("cors_origins", mode="before")
     @classmethod

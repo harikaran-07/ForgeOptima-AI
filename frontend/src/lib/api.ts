@@ -1,4 +1,7 @@
-const BASE = (import.meta.env.VITE_API_BASE_URL ?? "").replace(/\/$/, "");
+const defaultBase = typeof window !== "undefined" && window.location.hostname.includes("vercel.app")
+  ? "https://forgeoptima-ai.onrender.com"
+  : "";
+export const BASE = (import.meta.env.VITE_API_BASE_URL || defaultBase).replace(/\/$/, "");
 
 export class ApiError extends Error {
   status: number;
@@ -34,7 +37,11 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
       },
     });
   } catch {
-    throw new ApiError("Cannot reach the ForgeOptima backend. Is the API running on port 8000?", 0);
+    const isRender = BASE.includes("onrender.com");
+    const hint = isRender
+      ? "Cannot reach the ForgeOptima backend on Render. If the free instance is waking up from sleep, please wait 30–60 seconds and try again."
+      : "Cannot reach the ForgeOptima backend. Is the API running on port 8000?";
+    throw new ApiError(hint, 0);
   }
   if (!res.ok) throw new ApiError(await parseError(res), res.status);
   if (res.status === 204) return undefined as T;

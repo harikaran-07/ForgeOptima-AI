@@ -15,9 +15,8 @@ venv/
 *.db
 *.db-wal
 *.db-shm
-backend/data/*.csv
+backend/data/synthetic_readings.csv
 backend/data/runtime_settings.json
-backend/artifacts/
 backend/reports_out/
 
 # Frontend

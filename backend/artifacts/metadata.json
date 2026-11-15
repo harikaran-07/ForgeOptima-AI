@@ -1,0 +1,208 @@
+{
+  "version": "20261115.1008",
+  "trained_at": "2026-11-15T10:08:10.081352+00:00",
+  "dataset_size": 1182,
+  "models": {
+    "melting_time": {
+      "algorithm": "RandomForestRegressor",
+      "target": "melting_time_min",
+      "metrics": {
+        "mae": 2.785,
+        "rmse": 3.5768,
+        "r2": 0.9161,
+        "adjusted_r2": 0.9132,
+        "mape": 4.46,
+        "residual_std": 3.5802,
+        "test_samples": 237
+      },
+      "features": [
+        "charge_weight_kg",
+        "initial_temp_c",
+        "target_temp_c",
+        "temp_span_c",
+        "power_kw",
+        "ambient_temp_c",
+        "grade_code",
+        "energy_per_kg_nominal"
+      ],
+      "importance": [
+        {
+          "feature": "energy_per_kg_nominal",
+          "label": "Nominal specific energy (kWh/kg)",
+          "importance": 0.3701
+        },
+        {
+          "feature": "power_kw",
+          "label": "Power (kW)",
+          "importance": 0.3013
+        },
+        {
+          "feature": "charge_weight_kg",
+          "label": "Charge weight (kg)",
+          "importance": 0.2662
+        },
+        {
+          "feature": "initial_temp_c",
+          "label": "Initial temperature (\u00b0C)",
+          "importance": 0.0167
+        },
+        {
+          "feature": "ambient_temp_c",
+          "label": "Ambient temperature (\u00b0C)",
+          "importance": 0.0152
+        },
+        {
+          "feature": "target_temp_c",
+          "label": "Target temperature (\u00b0C)",
+          "importance": 0.0143
+        }
+      ]
+    },
+    "energy": {
+      "algorithm": "XGBRegressor",
+      "target": "energy_kwh",
+      "metrics": {
+        "mae": 41.7317,
+        "rmse": 53.2617,
+        "r2": 0.9906,
+        "adjusted_r2": 0.9901,
+        "mape": 2.41,
+        "residual_std": 53.238,
+        "test_samples": 237
+      },
+      "features": [
+        "charge_weight_kg",
+        "grade_code",
+        "power_kw",
+        "current_a",
+        "voltage_v",
+        "initial_temp_c",
+        "target_temp_c",
+        "temp_span_c",
+        "melting_time_min",
+        "ambient_temp_c",
+        "energy_per_kg_nominal"
+      ],
+      "importance": [
+        {
+          "feature": "charge_weight_kg",
+          "label": "Charge weight (kg)",
+          "importance": 0.6028
+        },
+        {
+          "feature": "current_a",
+          "label": "Current (A)",
+          "importance": 0.1084
+        },
+        {
+          "feature": "energy_per_kg_nominal",
+          "label": "Nominal specific energy (kWh/kg)",
+          "importance": 0.0991
+        },
+        {
+          "feature": "grade_code",
+          "label": "Metal grade",
+          "importance": 0.0728
+        },
+        {
+          "feature": "melting_time_min",
+          "label": "Melting duration (min)",
+          "importance": 0.0541
+        },
+        {
+          "feature": "power_kw",
+          "label": "Power (kW)",
+          "importance": 0.0445
+        }
+      ]
+    },
+    "time_to_target": {
+      "algorithm": "RandomForestRegressor",
+      "target": "remaining_min",
+      "metrics": {
+        "mae": 3.5978,
+        "rmse": 5.0551,
+        "r2": 0.9352,
+        "adjusted_r2": 0.9314,
+        "mape": 11.12,
+        "residual_std": 5.0691,
+        "test_samples": 180
+      },
+      "features": [
+        "charge_weight_kg",
+        "initial_temp_c",
+        "target_temp_c",
+        "temp_span_c",
+        "power_kw",
+        "ambient_temp_c",
+        "grade_code",
+        "elapsed_min",
+        "current_temperature_c",
+        "energy_to_date_kwh"
+      ],
+      "importance": [
+        {
+          "feature": "current_temperature_c",
+          "label": "Current temperature (\u00b0C)",
+          "importance": 0.5567
+        },
+        {
+          "feature": "elapsed_min",
+          "label": "Elapsed time (min)",
+          "importance": 0.21
+        },
+        {
+          "feature": "temp_span_c",
+          "label": "Temperature span (\u00b0C)",
+          "importance": 0.0863
+        },
+        {
+          "feature": "target_temp_c",
+          "label": "Target temperature (\u00b0C)",
+          "importance": 0.0831
+        },
+        {
+          "feature": "power_kw",
+          "label": "Power (kW)",
+          "importance": 0.0193
+        },
+        {
+          "feature": "grade_code",
+          "label": "Metal grade",
+          "importance": 0.0173
+        }
+      ]
+    },
+    "similar_heats": {
+      "algorithm": "KNeighborsRegressor (k=5, standardised)",
+      "target": "melting_time_min",
+      "metrics": {},
+      "features": [
+        "charge_weight_kg",
+        "initial_temp_c",
+        "target_temp_c",
+        "power_kw",
+        "grade_code",
+        "energy_per_kg_nominal"
+      ],
+      "importance": []
+    },
+    "anomaly": {
+      "algorithm": "IsolationForest",
+      "target": "anomaly_score",
+      "metrics": {
+        "contamination": 0.04
+      },
+      "features": [
+        "power_kw",
+        "current_a",
+        "voltage_v",
+        "energy_kwh",
+        "melting_time_min",
+        "charge_weight_kg",
+        "energy_per_kg"
+      ],
+      "importance": []
+    }
+  }
+}

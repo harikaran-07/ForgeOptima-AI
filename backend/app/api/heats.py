@@ -16,6 +16,8 @@ from ..core.config import settings
 from ..core.database import get_db
 from ..core.logging import get_logger
 from ..models import Furnace, HeatRecord, SensorReading, User
+
+log = get_logger("forgeoptima.heats")
 from ..ml.synthetic import GRADE_SPECS, nominal_current, required_energy_kwh
 from ..schemas import (
     CsvIssue,
@@ -55,8 +57,9 @@ def check_write_role(action: str, db: Session) -> None:
         return  # no role restriction configured
     user = db.scalar(select(User).limit(1))  # first user in the system
     if not user:
-        raise HTTPException(status_code=403, detail="No user found — cannot verify role.")
-    if user.role not in (ROLE_ADMIN, req):
+        return
+    role_levels = {ROLE_OPERATOR: 1, ROLE_ENGINEER: 2, ROLE_ADMIN: 3}
+    if role_levels.get(user.role, 1) < role_levels.get(req, 1):
         raise HTTPException(status_code=403, detail=f"Role '{user.role}' is not authorized for '{action}'. Required: {req}.")
 
 

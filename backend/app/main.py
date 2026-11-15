@@ -27,7 +27,7 @@ from .core.config import settings
 from .core.database import Base, SessionLocal, engine
 from .core.logging import configure_logging, get_logger
 from .ml.registry import registry
-from .models import HeatRecord
+from .models import Furnace, HeatRecord, PowerProfile, User
 
 configure_logging()
 log = get_logger("forgeoptima")
@@ -37,16 +37,107 @@ log = get_logger("forgeoptima")
 async def lifespan(_app: FastAPI):
     Base.metadata.create_all(bind=engine)
     log.info("Database ready (%s)", "sqlite" if settings.database_url.startswith("sqlite") else "postgresql")
+    try:
+        with SessionLocal() as session:
+            if not session.scalar(select(User).limit(1)):
+                session.add(User(email="admin@forgeoptima.ai", full_name="Hari Kumar", role="admin"))
+                session.add(User(email="engineer@forgeoptima.ai", full_name="Plant Engineer", role="engineer"))
+                session.add(User(email="operator@forgeoptima.ai", full_name="Shift Operator", role="operator"))
+                session.commit()
+            if not session.scalar(select(Furnace).limit(1)):
+                session.add(
+                    Furnace(
+                        name="IF-01",
+                        code="IF01",
+                        location="Plant 1 — Melt Shop, Bay 2",
+                        capacity_kg=5000,
+                        rated_power_kw=3500,
+                        min_power_kw=350,
+                        max_power_kw=3200,
+                        nominal_voltage_v=760,
+                        status="idle",
+                    )
+                )
+                session.commit()
+            if not session.scalar(select(PowerProfile).limit(1)):
+                for grade in ["MS", "SS304", "Cast Iron"]:
+                    session.add(
+                        PowerProfile(
+                            name=f"Standard ramp — {grade}",
+                            metal_grade=grade,
+                            description="Ramp to 70% power, hold through melt, taper before tap.",
+                            steps=[
+                                {"until_progress": 8, "power_kw": 1400},
+                                {"until_progress": 85, "power_kw": 2100},
+                                {"until_progress": 100, "power_kw": 1850},
+                            ],
+                            is_engineer_approved=True,
+                            is_experimental=False,
+                        )
+                    )
+                session.commit()
+            count = session.scalar(select(func.count(HeatRecord.id))) or 0
+            if count == 0:
+                from pathlib import Path
+                heats_csv = Path(settings.dataset_path)
+                if heats_csv.exists():
+                    log.info("Populating initial heats from %s...", heats_csv.name)
+                    import pandas as pd
+                    from datetime import datetime, timezone
+                    df = pd.read_csv(heats_csv)
+                    furnace = session.scalar(select(Furnace).limit(1))
+                    for _, row in df.iterrows():
+                        st = datetime.fromisoformat(str(row["heat_started_at"]))
+                        if st.tzinfo is None:
+                            st = st.replace(tzinfo=timezone.utc)
+                        cp = (
+                            datetime.fromisoformat(str(row["heat_completed_at"]))
+                            if pd.notna(row.get("heat_completed_at"))
+                            else None
+                        )
+                        if cp and cp.tzinfo is None:
+                            cp = cp.replace(tzinfo=timezone.utc)
+                        session.add(
+                            HeatRecord(
+                                heat_id=str(row["heat_id"]),
+                                furnace_id=furnace.id if furnace else 1,
+                                metal_grade=str(row["metal_grade"]),
+                                charge_weight_kg=float(row["charge_weight_kg"]),
+                                initial_temp_c=float(row["initial_temp_c"]),
+                                target_temp_c=float(row["target_temp_c"]),
+                                power_kw=float(row["power_kw"]),
+                                current_a=float(row["current_a"]),
+                                voltage_v=float(row["voltage_v"]),
+                                melting_time_min=float(row["melting_time_min"]),
+                                energy_kwh=float(row["energy_kwh"]),
+                                ambient_temp_c=float(row["ambient_temp_c"]),
+                                power_factor=float(row.get("power_factor", 0.92)),
+                                heat_status=str(row["heat_status"]),
+                                source="synthetic",
+                                is_synthetic=True,
+                                heat_started_at=st,
+                                heat_completed_at=cp,
+                            )
+                        )
+                    session.commit()
+                    count = session.scalar(select(func.count(HeatRecord.id))) or 0
+                    log.info("Auto-populated %s heats into database.", count)
+        log.info("Heat records in database: %s", count)
+    except Exception as exc:  # pragma: no cover
+        log.warning("Could not initialize reference data: %s", exc)
+
     if registry.is_ready():
         log.info("ML models loaded (version %s)", registry.version)
     else:
-        log.warning("No trained model artifacts found — run `python -m scripts.seed` to generate data and train.")
-    try:
-        with SessionLocal() as session:
-            count = session.scalar(select(func.count(HeatRecord.id))) or 0
-        log.info("Heat records in database: %s", count)
-    except Exception as exc:  # pragma: no cover
-        log.warning("Could not count heat records: %s", exc)
+        log.warning("No trained model artifacts found — attempting auto-training...")
+        try:
+            from .ml.training import train_all
+            train_all()
+            registry.reload()
+            if registry.is_ready():
+                log.info("ML models auto-trained and loaded (version %s)", registry.version)
+        except Exception as train_exc:
+            log.warning("Could not auto-train models: %s", train_exc)
     yield
     log.info("Shutting down ForgeOptima AI backend")
 
@@ -66,6 +157,7 @@ app = FastAPI(
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origins,
+    allow_origin_regex=r"^https://.*\.vercel\.app$",
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allow_headers=["*"],

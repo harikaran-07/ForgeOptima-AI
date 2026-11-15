@@ -44,8 +44,9 @@ log = get_logger("seed")
 
 def seed_reference_data(db) -> Furnace:
     if not db.query(User).first():
-        db.add(User(email="operator@forgeoptima.ai", full_name="Hari Kumar", role="operator"))
+        db.add(User(email="admin@forgeoptima.ai", full_name="Hari Kumar", role="admin"))
         db.add(User(email="engineer@forgeoptima.ai", full_name="Plant Engineer", role="engineer"))
+        db.add(User(email="operator@forgeoptima.ai", full_name="Shift Operator", role="operator"))
     furnace = db.query(Furnace).first()
     if not furnace:
         furnace = Furnace(

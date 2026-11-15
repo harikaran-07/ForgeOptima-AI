@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { BASE } from "../lib/api";
 
 interface State<T> {
   data: T | null;
@@ -23,9 +24,7 @@ export function useFetch<T>(path: string | null, options?: { pollMs?: number; de
       if (!target) return;
       if (!silent) setState((s) => ({ ...s, loading: true }));
       try {
-        const res = await fetch(
-          `${(import.meta.env.VITE_API_BASE_URL ?? "").replace(/\/$/, "")}/api${target}`
-        );
+        const res = await fetch(`${BASE}/api${target}`);
         if (!res.ok) {
           let detail = `Request failed (${res.status})`;
           try {
@@ -40,9 +39,13 @@ export function useFetch<T>(path: string | null, options?: { pollMs?: number; de
         if (mounted.current) setState({ data, error: null, loading: false });
       } catch (err) {
         if (mounted.current) {
+          const isNetwork = err instanceof TypeError && (err.message.includes("fetch") || err.message.includes("Network"));
+          const message = isNetwork && BASE.includes("onrender.com")
+            ? "Cannot reach the backend on Render. If the server is waking up from sleep, please wait 30–60 seconds and refresh."
+            : err instanceof Error ? err.message : "Unexpected error";
           setState((s) => ({
             data: s.data,
-            error: err instanceof Error ? err.message : "Unexpected error",
+            error: message,
             loading: false,
           }));
         }
