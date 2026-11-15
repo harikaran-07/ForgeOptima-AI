@@ -9,8 +9,6 @@ import EnergyIntelligence from "./pages/EnergyIntelligence";
 import Anomalies from "./pages/Anomalies";
 import HeatHistory from "./pages/HeatHistory";
 import ShakthiAI from "./pages/ShakthiAI";
-import LocalAISetup from "./pages/LocalAISetup";
-import ModelSettings from "./pages/ModelSettings";
 import Reports from "./pages/Reports";
 import Settings from "./pages/Settings";
 
@@ -28,9 +26,6 @@ export default function App() {
         <Route path="/history" element={<HeatHistory />} />
         <Route path="/history/:heatId" element={<HeatHistory />} />
         <Route path="/shakthi-ai" element={<ShakthiAI />} />
-        <Route path="/local-ai" element={<LocalAISetup />} />
-        <Route path="/models" element={<ModelSettings />} />
-        <Route path="/model-settings" element={<Navigate to="/models" replace />} />
         <Route path="/reports" element={<Reports />} />
         <Route path="/settings" element={<Settings />} />
         <Route path="*" element={<Navigate to="/" replace />} />

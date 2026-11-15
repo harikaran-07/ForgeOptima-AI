@@ -7,7 +7,6 @@ import {
   BrainCircuit,
   ChevronRight,
   Command,
-  Cpu,
   FileText,
   Flame,
   Gauge,
@@ -36,8 +35,6 @@ const NAV = [
   { to: "/anomalies", label: "Anomaly Detection", icon: ShieldAlert },
   { to: "/history", label: "Heat History", icon: History },
   { to: "/shakthi-ai", label: "SHAKTHI AI", icon: Sparkles },
-  { to: "/models", label: "AI Model Settings", icon: Cpu },
-  { to: "/local-ai", label: "Run Local AI", icon: BrainCircuit },
   { to: "/reports", label: "Reports & Analytics", icon: FileText },
   { to: "/settings", label: "Settings", icon: SettingsIcon },
 ];
@@ -196,9 +193,9 @@ export default function Layout() {
                 <Wifi className="h-3 w-3" />
                 {connected ? "API connected" : "Cloud Sync Active"}
               </Chip>
-              <Chip tone="violet">
+              <Chip tone={ai.data?.online ? "violet" : "neutral"}>
                 <Sparkles className="h-3 w-3" />
-                SHAKTHI {ai.data?.online !== false ? "online" : "online"}
+                SHAKTHI AI · {ai.data?.provider ? (ai.data.provider.charAt(0).toUpperCase() + ai.data.provider.slice(1)) : "Cloud"}
               </Chip>
               {status.data && (
                 <span className="mono hidden text-[12px] text-ink-200 md:inline">

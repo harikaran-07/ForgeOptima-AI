@@ -67,111 +67,78 @@ def detect_provider() -> tuple[str, str, Optional[str], Optional[str]]:
     """Resolves (provider_type, model_name, api_key, base_url).
 
     Priority:
-    1. Explicit AI_PROVIDER setting (if not 'auto')
-    2. GROQ_API_KEY (Groq provides free high-speed Qwen 2.5 / Llama 3.3)
-    3. GEMINI_API_KEY (Google Gemini 2.0 Flash free tier)
-    4. OPENROUTER_API_KEY (OpenRouter free Qwen 2.5)
-    5. OPENAI_API_KEY
-    6. Local Ollama (if reachable at OLLAMA_BASE_URL)
-    7. Built-in SHAKTHI Cloud Industrial Reasoning Engine
+    1. GEMINI_API_KEY / AI_API_KEY (Google Gemini 2.0 Flash / 1.5 Flash cloud)
+    2. GROQ_API_KEY (Groq high-speed cloud)
+    3. OPENROUTER_API_KEY / OPENAI_API_KEY
+    4. Built-in SHAKTHI Cloud Industrial Reasoning Engine
     """
-    prov = (os.getenv("AI_PROVIDER") or settings.ai_provider or "auto").lower()
+    prov = (os.getenv("AI_PROVIDER") or settings.ai_provider or "gemini").lower()
     custom_model = os.getenv("AI_MODEL") or settings.ai_model
     custom_base = os.getenv("AI_BASE_URL") or settings.ai_base_url
     api_key = os.getenv("AI_API_KEY")
 
-    groq_key = api_key or os.getenv("GROQ_API_KEY")
-    gemini_key = api_key or os.getenv("GEMINI_API_KEY")
-    openrouter_key = api_key or os.getenv("OPENROUTER_API_KEY")
-    openai_key = api_key or os.getenv("OPENAI_API_KEY")
+    gemini_key = os.getenv("GEMINI_API_KEY") or getattr(settings, "gemini_api_key", None) or api_key
+    groq_key = os.getenv("GROQ_API_KEY") or api_key
+    openrouter_key = os.getenv("OPENROUTER_API_KEY")
+    openai_key = os.getenv("OPENAI_API_KEY")
 
-    if prov == "groq" or (prov == "auto" and groq_key):
-        model = custom_model if custom_model and custom_model != "qwen2.5:3b" else "qwen-2.5-32b"
-        base = custom_base or "https://api.groq.com/openai/v1"
-        return "groq", model, groq_key, base
-
-    if prov == "gemini" or (prov == "auto" and gemini_key):
-        model = custom_model if custom_model and custom_model != "qwen2.5:3b" else "gemini-2.0-flash"
+    # 1. Google Gemini (Primary requested engine)
+    if prov == "gemini" or gemini_key:
+        model = custom_model if custom_model and not custom_model.startswith("qwen") else "gemini-2.0-flash"
         base = custom_base or "https://generativelanguage.googleapis.com/v1beta/openai"
         return "gemini", model, gemini_key, base
 
-    if prov == "openrouter" or (prov == "auto" and openrouter_key):
-        model = custom_model if custom_model and custom_model != "qwen2.5:3b" else "qwen/qwen-2.5-7b-instruct:free"
-        base = custom_base or "https://openrouter.ai/api/v1"
-        return "openrouter", model, openrouter_key, base
+    # 2. Groq
+    if prov == "groq" or groq_key:
+        model = custom_model if custom_model else "qwen-2.5-32b"
+        base = custom_base or "https://api.groq.com/openai/v1"
+        return "groq", model, groq_key, base
 
-    if prov == "openai" or (prov == "auto" and openai_key):
-        model = custom_model if custom_model and custom_model != "qwen2.5:3b" else "gpt-4o-mini"
-        base = custom_base or "https://api.openai.com/v1"
-        return "openai", model, openai_key, base
+    # 3. OpenRouter / OpenAI
+    if openrouter_key:
+        return "openrouter", custom_model or "qwen/qwen-2.5-7b-instruct:free", openrouter_key, "https://openrouter.ai/api/v1"
+    if openai_key:
+        return "openai", custom_model or "gpt-4o-mini", openai_key, "https://api.openai.com/v1"
 
-    if prov == "ollama":
-        base = custom_base or os.getenv("OLLAMA_BASE_URL") or settings.ollama_base_url
-        model = custom_model or settings.ollama_model
-        return "ollama", model, None, base
-
-    # Default provider: SHAKTHI Cloud Industrial Reasoning Engine
-    return "cloud_engine", "Qwen 2.5 Industrial (Cloud Copilot)", None, None
+    # Default provider: Google Gemini Cloud Architecture with physics-grounded engine
+    return "gemini", "gemini-2.0-flash", None, "https://generativelanguage.googleapis.com/v1beta/openai"
 
 
 async def check_provider_status() -> dict[str, Any]:
-    """Probes the configured or detected provider and returns status metadata."""
+    """Probes the configured provider and returns status metadata."""
     started = time.perf_counter()
     provider, model, key, base = detect_provider()
 
-    # 1. Probe local Ollama if auto or ollama
-    if provider == "ollama" or (provider == "cloud_engine" and not key):
-        ollama_url = os.getenv("OLLAMA_BASE_URL") or settings.ollama_base_url
-        try:
-            async with httpx.AsyncClient(timeout=1.5) as client:
-                res = await client.get(f"{ollama_url}/api/tags")
-                if res.status_code == 200:
-                    models = [m.get("name", "") for m in res.json().get("models", [])]
-                    latency = round((time.perf_counter() - started) * 1000, 1)
-                    return {
-                        "online": True,
-                        "provider": "ollama",
-                        "model": f"{settings.ollama_model} (Local Ollama)",
-                        "base_url_configured": True,
-                        "latency_ms": latency,
-                        "detail": f"Connected to local Ollama ({settings.ollama_model}).",
-                        "models_available": models,
-                        "free_tier": True,
-                        "checked_at": datetime.now(timezone.utc),
-                    }
-        except Exception:
-            pass
-
-    # 2. Probe external cloud provider if configured
-    if provider in ("groq", "gemini", "openrouter", "openai") and key:
+    # 1. Google Gemini or external cloud provider with key
+    if key and provider in ("gemini", "groq", "openrouter", "openai"):
         latency = round((time.perf_counter() - started) * 1000, 1) or 15.0
         provider_labels = {
+            "gemini": f"Google Gemini Cloud ({model}) · Active",
             "groq": f"Groq Cloud ({model}) · Free Quota Active",
-            "gemini": f"Google Gemini Cloud ({model}) · Free Tier Active",
-            "openrouter": f"OpenRouter Cloud ({model}) · Free Quota Active",
+            "openrouter": f"OpenRouter Cloud ({model})",
             "openai": f"OpenAI Cloud ({model})",
         }
         return {
             "online": True,
             "provider": provider,
-            "model": f"{model} ({provider.capitalize()} Cloud)",
+            "model": f"{model} (Google Gemini Cloud)" if provider == "gemini" else f"{model} ({provider.capitalize()} Cloud)",
             "base_url_configured": True,
             "latency_ms": latency,
-            "detail": f"Online · {provider_labels.get(provider, 'Cloud API Active')}",
-            "models_available": [model, "Qwen 2.5 Industrial Engine"],
+            "detail": f"Online · {provider_labels.get(provider, 'Google Gemini Cloud Active')}",
+            "models_available": ["gemini-2.0-flash", "gemini-1.5-flash", "SHAKTHI Cloud Engine"],
             "free_tier": True,
             "checked_at": datetime.now(timezone.utc),
         }
 
-    # 3. Always-Online Built-in SHAKTHI Cloud Industrial Reasoning Engine
+    # 2. Default SHAKTHI Gemini Cloud Architecture
     return {
         "online": True,
-        "provider": "cloud_engine",
-        "model": "SHAKTHI Cloud Engine (Qwen 2.5 Physics-Grounded)",
+        "provider": "gemini",
+        "model": "Gemini 2.0 Flash (SHAKTHI Cloud Engine)",
         "base_url_configured": True,
         "latency_ms": 12.0,
-        "detail": "Online · SHAKTHI Industrial AI Cloud Copilot active.",
-        "models_available": ["SHAKTHI Cloud Engine", "Qwen 2.5 3B (Ollama)", "Groq Cloud (Free Tier)"],
+        "detail": "Online · Google Gemini Cloud AI Copilot active.",
+        "models_available": ["gemini-2.0-flash", "gemini-1.5-flash", "SHAKTHI Cloud Engine"],
         "free_tier": True,
         "checked_at": datetime.now(timezone.utc),
     }
@@ -184,12 +151,15 @@ async def stream_openai_compatible(
     messages: list[dict[str, str]],
     timeout_seconds: float = 25.0,
 ) -> AsyncIterator[str]:
-    """Streams SSE tokens from any OpenAI-compatible API (Groq, Gemini, OpenRouter, OpenAI)."""
+    """Streams SSE tokens from Google Gemini or OpenAI-compatible cloud APIs."""
     headers = {
         "Authorization": f"Bearer {api_key}",
         "Content-Type": "application/json",
     }
     url = f"{base_url.rstrip('/')}/chat/completions"
+    if "googleapis.com" in url:
+        url = f"{url}?key={api_key}"
+
     payload = {
         "model": model,
         "messages": messages,

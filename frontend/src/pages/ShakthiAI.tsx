@@ -1,5 +1,4 @@
 import { FormEvent, useEffect, useRef, useState } from "react";
-import { Link } from "react-router-dom";
 import clsx from "clsx";
 import {
   AlertTriangle,
@@ -9,10 +8,8 @@ import {
   ChevronUp,
   Clock,
   Copy,
-  Cpu,
   Database,
   Flame,
-  Laptop,
   Layers,
   MessageSquarePlus,
   RefreshCw,
@@ -28,7 +25,6 @@ import { api, getSessionId, streamChat } from "../lib/api";
 import { AIStatus, AIUsage } from "../lib/types";
 import { dt } from "../lib/format";
 import { Chip, ErrorBox, Notice, PageHeader, Panel } from "../components/ui";
-import { getSavedLocalEndpoint, getSavedLocalModel, streamLocalOllama } from "../lib/localOllama";
 
 interface Message {
   role: "user" | "assistant";
@@ -58,12 +54,12 @@ const SUGGESTED_QUESTIONS = [
 ];
 
 const FACETS = [
-  { icon: Flame, title: "Furnace Status & Telemetry", desc: "Coil power, bath temp, delta T" },
-  { icon: Zap, title: "Energy & Power Analytics", desc: "kWh/kg benchmark, excess waste" },
-  { icon: Clock, title: "Melting Time Predictions", desc: "RandomForest 42.4 min estimate" },
-  { icon: Database, title: "Historical Heat Cohorts", desc: "KNN nearest match & similarities" },
-  { icon: AlertTriangle, title: "Anomaly Detection", desc: "IsolationForest safety audit" },
-  { icon: ShieldCheck, title: "Carbon & Production", desc: "kg CO₂ avoided & shift output" },
+  { icon: Flame, title: "Furnace Status & Sensors", desc: "Coil power, bath temp, delta T" },
+  { icon: Zap, title: "Energy & Specific Power", desc: "kWh/kg benchmark & excess waste" },
+  { icon: Clock, title: "Melting Time Predictions", desc: "RandomForest 42.4 min forecast" },
+  { icon: Database, title: "Historical Heat Cohorts", desc: "KNN nearest heat matches" },
+  { icon: AlertTriangle, title: "Anomaly Detection", desc: "IsolationForest safety screening" },
+  { icon: ShieldCheck, title: "Carbon & Shift Output", desc: "kg CO₂ avoided & shift performance" },
 ];
 
 export default function ShakthiAI() {
@@ -82,21 +78,12 @@ export default function ShakthiAI() {
   const [contextOpen, setContextOpen] = useState(false);
   const [usageOpen, setUsageOpen] = useState(false);
   const [clearConfirm, setClearConfirm] = useState(false);
-  const [aiMode, setAiMode] = useState<"cloud" | "local">(() => {
-    return (localStorage.getItem("forgeoptima_ai_mode") as "cloud" | "local") || "cloud";
-  });
 
   const abortRef = useRef<AbortController | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
   const sessionId = getSessionId();
-  const contextFetch = useFetch<{ context: Record<string, unknown>; system_prompt: string }>("/ai/context");
-
-  const switchMode = (mode: "cloud" | "local") => {
-    setAiMode(mode);
-    localStorage.setItem("forgeoptima_ai_mode", mode);
-  };
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
@@ -130,60 +117,6 @@ export default function ShakthiAI() {
     const controller = new AbortController();
     abortRef.current = controller;
 
-    // LOCAL MODE: Directly route to local Ollama runtime
-    if (aiMode === "local") {
-      const endpoint = getSavedLocalEndpoint();
-      const model = getSavedLocalModel();
-      const ctxString = contextFetch.data?.context ? JSON.stringify(contextFetch.data.context, null, 1) : "";
-      const systemContent = `${contextFetch.data?.system_prompt || "You are SHAKTHI AI, the industrial furnace copilot."}\n\n=== CURRENT PLANT CONTEXT ===\n${ctxString}\n=== END CONTEXT ===\n\nDistinguish measured, simulated, predicted, and estimated data. Answer clearly and concisely in industrial units.`;
-
-      const chatPayload = [
-        { role: "system", content: systemContent },
-        ...messages.slice(-8).map((m) => ({ role: m.role, content: m.content })),
-        { role: "user", content: trimmed },
-      ];
-
-      try {
-        await streamLocalOllama(
-          endpoint,
-          model,
-          chatPayload,
-          (delta) => {
-            setMessages((prev) => {
-              const next = [...prev];
-              const last = next[next.length - 1];
-              if (last?.role === "assistant") {
-                next[next.length - 1] = { ...last, content: last.content + delta };
-              }
-              return next;
-            });
-          },
-          () => {
-            setMessages((prev) => {
-              const next = [...prev];
-              const last = next[next.length - 1];
-              if (last?.role === "assistant") next[next.length - 1] = { ...last, streaming: false };
-              return next;
-            });
-            setBusy(false);
-          },
-          (errMsg) => {
-            setError(`Local AI error (${endpoint}): ${errMsg}`);
-            setMessages((prev) => prev.filter((m) => !(m.role === "assistant" && m.streaming && !m.content)));
-            setBusy(false);
-          },
-          controller.signal
-        );
-      } catch (err) {
-        if (!controller.signal.aborted) {
-          setError(err instanceof Error ? err.message : "Local inference failed.");
-          setBusy(false);
-        }
-      }
-      return;
-    }
-
-    // CLOUD MODE: Stream through backend API layer
     try {
       await streamChat(
         trimmed,
@@ -294,8 +227,8 @@ export default function ShakthiAI() {
     }
   };
 
-  const activeModel = status.data?.model ?? "SHAKTHI Cloud Engine";
-  const activeProvider = status.data?.provider ?? "Cloud";
+  const activeModel = status.data?.model ?? "Gemini 2.0 Flash";
+  const activeProvider = status.data?.provider ?? "Google Gemini";
   const isOnline = status.data?.online !== false;
   const promptList = suggestions.data?.suggestions?.length
     ? suggestions.data.suggestions
@@ -306,65 +239,26 @@ export default function ShakthiAI() {
       <PageHeader
         eyebrow="Module 09 · Industrial Furnace Copilot"
         title="SHAKTHI AI"
-        description="Your Intelligent Industrial Furnace Copilot. Grounded decision support for furnace status, melt predictions, energy, similar heats, anomalies, and carbon footprint — powered by online cloud intelligence or your local Qwen 2.5 3B model."
+        description="Your Intelligent Industrial Furnace Copilot. Grounded decision support for furnace status, melt predictions, energy, similar heats, anomalies, and carbon footprint — powered by Google Gemini Cloud AI."
       >
-        {/* Mode Selector */}
-        <div className="flex rounded-lg border border-base-700 bg-base-900 p-0.5">
-          <button
-            onClick={() => switchMode("cloud")}
+        <Chip tone={isOnline ? "violet" : "crit"}>
+          <span
             className={clsx(
-              "rounded px-2.5 py-1 text-[11px] font-medium transition-colors",
-              aiMode === "cloud" ? "bg-violet text-white shadow-sm" : "text-ink-400 hover:text-white"
+              "h-2 w-2 rounded-full",
+              isOnline ? "animate-pulseSoft bg-violet" : "bg-crit"
             )}
-          >
-            Cloud Mode
-          </button>
-          <button
-            onClick={() => switchMode("local")}
-            className={clsx(
-              "rounded px-2.5 py-1 text-[11px] font-medium transition-colors flex items-center gap-1",
-              aiMode === "local" ? "bg-electric text-white shadow-sm" : "text-ink-400 hover:text-white"
-            )}
-          >
-            <Laptop className="h-3 w-3" />
-            Local Mode (Qwen 3B)
-          </button>
-        </div>
+          />
+          {isOnline ? "Gemini Cloud Online" : "AI Offline"}
+        </Chip>
 
-        {aiMode === "cloud" ? (
-          <Chip tone={isOnline ? "violet" : "crit"}>
-            <span
-              className={clsx(
-                "h-2 w-2 rounded-full",
-                isOnline ? "animate-pulseSoft bg-violet" : "bg-crit"
-              )}
-            />
-            {isOnline ? "Cloud AI Online" : "AI Offline"}
-          </Chip>
-        ) : (
-          <Chip tone="blue">
-            <span className="h-2 w-2 rounded-full bg-electric animate-pulse" />
-            Local Model Active
-          </Chip>
-        )}
+        <Chip tone="neutral" className="hidden sm:inline-flex">
+          <Sparkles className="h-3 w-3 text-violet" />
+          <span className="capitalize">{activeProvider}</span> · {activeModel}
+        </Chip>
 
-        <Link
-          to="/models"
-          className="btn-ghost !py-1.5 !text-[12px] border-electric/30 text-electric hover:bg-electric/10 flex items-center gap-1.5"
-          title="Open AI Model Settings & Storage Manager"
-        >
-          <Database className="h-3.5 w-3.5" />
-          <span>Model Settings</span>
-        </Link>
-
-        <Link
-          to="/local-ai"
-          className="btn-ghost !py-1.5 !text-[12px] border-violet/30 text-violet hover:bg-violet/10 flex items-center gap-1.5"
-          title="Open complete local Ollama download and setup guide"
-        >
-          <Cpu className="h-3.5 w-3.5" />
-          <span>Local Setup</span>
-        </Link>
+        <Chip tone="good" className="hidden md:inline-flex">
+          ₹0.00 Free Quota
+        </Chip>
 
         <button
           className="btn-ghost !py-1.5 !text-[12px]"
@@ -379,27 +273,15 @@ export default function ShakthiAI() {
         </button>
       </PageHeader>
 
-      {/* Top Banner Alert when in free tier / loading */}
-      {status.loading && (
-        <div className="rounded-xl border border-violet/30 bg-violet/[0.04] px-4 py-2.5">
-          <div className="flex items-center gap-2.5">
-            <Sparkles className="h-4 w-4 shrink-0 text-violet animate-pulse" />
-            <p className="text-[12px] text-ink-300">
-              Connecting to SHAKTHI Cloud Industrial Reasoning Engine. Synchronizing plant telemetry and prediction models...
-            </p>
-          </div>
-        </div>
-      )}
-
       <div className="grid gap-4 xl:grid-cols-4">
         {/* Main Conversation Stream (3 cols) */}
         <div className="xl:col-span-3">
           <Panel
-            title="Furnace Telemetry & Copilot Stream"
+            title="Furnace Telemetry & Gemini Copilot Stream"
             subtitle={
               conversationId
                 ? `Active Session Conversation #${conversationId}`
-                : "New session · Grounded in plant telemetry and ML models"
+                : "New session · Grounded in live plant telemetry and ML models"
             }
             action={
               <div className="flex items-center gap-2">
@@ -432,6 +314,9 @@ export default function ShakthiAI() {
                   <h3 className="mt-3 text-[16px] font-semibold text-white tracking-tight">SHAKTHI AI</h3>
                   <p className="mt-0.5 text-[12px] font-medium text-violet tracking-wide">
                     Your Intelligent Industrial Furnace Copilot
+                  </p>
+                  <p className="text-[11px] text-ink-400 mt-0.5">
+                    Powered by Google Gemini Cloud Intelligence
                   </p>
                   <p className="mt-2 text-[12px] leading-relaxed text-ink-400 max-w-md mx-auto">
                     Live decision support grounded in furnace sensor telemetry, RandomForest melting time forecasts,
@@ -490,7 +375,6 @@ export default function ShakthiAI() {
                           : "border border-electric/30 bg-electric/15 text-ink-50"
                       )}
                     >
-                      {/* Distinguish Industrial Tags if present */}
                       <div className="whitespace-pre-wrap font-sans">
                         {message.content}
                         {message.streaming && (
@@ -503,7 +387,7 @@ export default function ShakthiAI() {
                         <div className="mt-2.5 flex items-center justify-between border-t border-base-750/70 pt-1.5 text-[10.5px] text-ink-500">
                           <span className="flex items-center gap-1 text-[10px] text-ink-500 font-mono">
                             <Sparkles className="h-2.5 w-2.5 text-violet" />
-                            Grounded Telemetry
+                            Grounded Telemetry · Gemini
                           </span>
                           <button
                             onClick={() => copyToClipboard(message.content, index)}
@@ -537,7 +421,7 @@ export default function ShakthiAI() {
                   </div>
                   <div className="rounded-xl border border-base-700 bg-base-900/90 px-4 py-3 text-[12px] text-ink-400 flex items-center gap-2">
                     <span className="inline-block h-2 w-2 rounded-full bg-violet animate-ping" />
-                    <span>Analyzing furnace telemetry & synthesizing grounded response...</span>
+                    <span>Analyzing furnace telemetry & synthesizing grounded response with Google Gemini...</span>
                   </div>
                 </div>
               )}
@@ -608,7 +492,7 @@ export default function ShakthiAI() {
         {/* Sidebar Controls (1 col) */}
         <div className="space-y-4">
           {/* Panel: Model & Inference Engine Status */}
-          <Panel title="Copilot Engine" subtitle="Backend-mediated AI architecture">
+          <Panel title="Gemini Copilot Engine" subtitle="Google Gemini Cloud AI Architecture">
             <div className="space-y-2.5">
               <div className="flex items-center justify-between">
                 <span className="text-[11.5px] text-ink-400">Inference Status</span>
@@ -623,7 +507,7 @@ export default function ShakthiAI() {
                 </Chip>
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-[11.5px] text-ink-400">Inference Provider</span>
+                <span className="text-[11.5px] text-ink-400">AI Provider</span>
                 <span className="mono text-[11.5px] text-ink-100 capitalize font-medium">
                   {activeProvider}
                 </span>
@@ -642,7 +526,7 @@ export default function ShakthiAI() {
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-[11.5px] text-ink-400">Budget Tier</span>
-                <span className="mono text-[11px] text-good font-medium">₹0.00 (Free Tier)</span>
+                <span className="mono text-[11px] text-good font-medium">₹0.00 (Free Quota)</span>
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-[11.5px] text-ink-400">Session ID</span>
@@ -658,7 +542,7 @@ export default function ShakthiAI() {
                 >
                   <span className="flex items-center gap-1.5">
                     <Zap className="h-3 w-3 text-violet" />
-                    Usage & Quotas
+                    Usage & Free Quotas
                   </span>
                   {usageOpen ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
                 </button>
@@ -679,7 +563,7 @@ export default function ShakthiAI() {
 
           {/* Collapsible Usage & Quota Box */}
           {usageOpen && (
-            <Panel title="AI Quota & Usage" subtitle="Free tier usage tracking">
+            <Panel title="Gemini Quota & Usage" subtitle="Free tier usage tracking">
               <div className="space-y-2 text-[11.5px]">
                 <div className="flex justify-between">
                   <span className="text-ink-400">Free Tier Status:</span>
@@ -690,7 +574,7 @@ export default function ShakthiAI() {
                 <div className="flex justify-between">
                   <span className="text-ink-400">Quota Limit:</span>
                   <span className="mono text-ink-200">
-                    {usage.data?.quota_limit ?? "14,400 req/day"}
+                    {usage.data?.quota_limit ?? "Free API Tier"}
                   </span>
                 </div>
                 <div className="flex justify-between">
@@ -829,7 +713,7 @@ export default function ShakthiAI() {
 function ContextPreview() {
   const context = useFetch<{ context: Record<string, unknown>; system_prompt: string }>("/ai/context");
   return (
-    <Panel title="Context sent to the model" subtitle="Read-only plant snapshot">
+    <Panel title="Context sent to Google Gemini" subtitle="Read-only plant snapshot">
       {context.data ? (
         <pre className="max-h-[260px] overflow-auto rounded-lg border border-base-700 bg-base-950/80 p-2.5 text-[9.5px] leading-relaxed text-ink-400 font-mono">
           {JSON.stringify(context.data.context, null, 1)}
