@@ -1,0 +1,36 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+.pytest_cache/
+
+# Environment & secrets
+.env
+.env.local
+.env.*.local
+
+# Databases & generated data
+*.db
+*.db-wal
+*.db-shm
+backend/data/*.csv
+backend/data/runtime_settings.json
+backend/artifacts/
+backend/reports_out/
+
+# Frontend
+node_modules/
+dist/
+.vite/
+*.tsbuildinfo
+
+# Logs & OS files
+*.log
+.DS_Store
+Thumbs.db
+
+# Editors
+.vscode/
+.idea/

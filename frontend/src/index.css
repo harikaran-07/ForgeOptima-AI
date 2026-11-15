@@ -1,0 +1,85 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    color-scheme: dark;
+  }
+  body {
+    @apply bg-base-900 text-ink-100 font-sans antialiased;
+    background-image:
+      radial-gradient(900px 520px at 12% -10%, rgba(59, 125, 255, 0.09), transparent 60%),
+      radial-gradient(760px 440px at 92% 0%, rgba(139, 124, 246, 0.07), transparent 60%);
+    background-attachment: fixed;
+  }
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: #28374f transparent;
+  }
+  ::-webkit-scrollbar {
+    width: 9px;
+    height: 9px;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: #28374f;
+    border-radius: 9px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  input,
+  select,
+  textarea,
+  button {
+    font: inherit;
+  }
+}
+
+@layer components {
+  .panel {
+    @apply rounded-xl border border-base-600/70 bg-base-850/80 shadow-panel backdrop-blur-[2px];
+  }
+  .panel-head {
+    @apply flex flex-wrap items-center justify-between gap-3 border-b border-base-700/70 px-4 py-3;
+  }
+  .panel-title {
+    @apply text-[13px] font-semibold uppercase tracking-[0.11em] text-ink-300;
+  }
+  .field-label {
+    @apply mb-1.5 block text-[11px] font-medium uppercase tracking-[0.09em] text-ink-400;
+  }
+  .input {
+    @apply w-full rounded-lg border border-base-600 bg-base-900/80 px-3 py-2 text-[13px] text-ink-100
+      outline-none transition placeholder:text-ink-600
+      focus:border-electric/70 focus:ring-1 focus:ring-electric/30 disabled:opacity-50;
+  }
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-lg px-3.5 py-2 text-[13px] font-medium
+      transition-colors duration-150 disabled:cursor-not-allowed disabled:opacity-45;
+  }
+  .btn-primary {
+    @apply btn bg-electric text-white hover:bg-[#2f6be6];
+  }
+  .btn-ghost {
+    @apply btn border border-base-600 bg-base-800/60 text-ink-200 hover:border-base-500 hover:text-white;
+  }
+  .btn-danger {
+    @apply btn border border-crit/40 bg-crit/10 text-crit hover:bg-crit/15;
+  }
+  .chip {
+    @apply inline-flex items-center gap-1.5 rounded-md border px-2 py-0.5 text-[11px] font-medium;
+  }
+  .mono {
+    @apply font-mono tabular-nums;
+  }
+  .th {
+    @apply whitespace-nowrap px-3 py-2 text-left text-[10.5px] font-semibold uppercase tracking-[0.09em] text-ink-400;
+  }
+  .td {
+    @apply whitespace-nowrap px-3 py-2.5 text-[12.5px] text-ink-200;
+  }
+  .row-hover {
+    @apply transition-colors hover:bg-base-750/60;
+  }
+}
