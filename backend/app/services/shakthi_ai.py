@@ -8,6 +8,7 @@ Integrates:
 from __future__ import annotations
 
 import json
+import time
 from typing import Any, AsyncIterator, Optional
 
 from sqlalchemy.orm import Session
@@ -56,31 +57,37 @@ async def chat_stream(
     clean_session = resolve_session_id(session_id)
 
     # 1. Rate limiting
-    check_rate_limit(clean_session)
+    try:
+        check_rate_limit(clean_session)
+    except Exception as rl_exc:
+        yield f"data: {json.dumps({'type': 'delta', 'text': f'⚠️ **Notice:** {rl_exc}'})}\n\n"
+        yield f"data: {json.dumps({'type': 'done'})}\n\n"
+        return
 
-    # 2. Retrieve or create session-isolated conversation
-    conv = get_or_create_conversation(db, clean_session, conversation_id, title_hint=message[:80])
-    conversation_id = conv.id
+    # 2. Retrieve or create session-isolated conversation & assemble furnace context
+    active_conv_id = conversation_id or int(time.time() * 1000) % 1000000
+    messages: list[dict[str, str]] = []
+    context: dict[str, Any] = {}
 
-    # 3. Store user message in DB
-    append_message(db, conversation_id, role="user", content=message)
+    try:
+        conv = get_or_create_conversation(db, clean_session, conversation_id, title_hint=message[:80])
+        active_conv_id = conv.id
+        append_message(db, active_conv_id, role="user", content=message)
+        context = build_furnace_context(db)
+        history = load_conversation_messages(db, active_conv_id)
+        full_system = f"{SYSTEM_PROMPT}\n\n{format_context_prompt(context)}"
+        messages.append({"role": "system", "content": full_system})
+        for h in history[:-1]:
+            messages.append(h)
+    except Exception as db_exc:
+        log.warning("Database unavailable in chat_stream (%s), continuing with ephemeral session", db_exc)
+        messages.append({"role": "system", "content": SYSTEM_PROMPT})
 
-    # 4. Assemble furnace context for reference
-    context = build_furnace_context(db)
-
-    # 5. Build conversation message history
-    history = load_conversation_messages(db, conversation_id)
-    full_system = f"{SYSTEM_PROMPT}\n\n{format_context_prompt(context)}"
-    messages: list[dict[str, str]] = [
-        {"role": "system", "content": full_system}
-    ]
-    for h in history[:-1]:  # exclude the user message we just appended
-        messages.append(h)
     messages.append({"role": "user", "content": message})
 
-    # 6. Stream SSE frames
+    # 3. Stream SSE frames
     provider, model, resolved_key, _ = detect_provider(override_key=api_key)
-    yield f"data: {json.dumps({'type': 'start', 'conversation_id': conversation_id, 'model': model, 'provider': provider, 'session_id': clean_session})}\n\n"
+    yield f"data: {json.dumps({'type': 'start', 'conversation_id': active_conv_id, 'model': model, 'provider': provider, 'session_id': clean_session})}\n\n"
 
     accumulated = ""
     try:
@@ -89,13 +96,15 @@ async def chat_stream(
             yield f"data: {json.dumps({'type': 'delta', 'text': token})}\n\n"
     except Exception as exc:
         log.error("Error during streaming: %s", exc)
-        yield f"data: {json.dumps({'type': 'error', 'message': str(exc)})}\n\n"
+        yield f"data: {json.dumps({'type': 'delta', 'text': f'\n\n⚠️ **Inference Notice:** {exc}'})}\n\n"
 
-    # 7. Persist completed assistant message
+    # 4. Persist completed assistant message
     if accumulated.strip():
         try:
-            append_message(db, conversation_id, role="assistant", content=accumulated)
+            db.rollback()
+            append_message(db, active_conv_id, role="assistant", content=accumulated)
         except Exception as save_exc:
             log.warning("Could not persist assistant reply: %s", save_exc)
 
     yield f"data: {json.dumps({'type': 'done'})}\n\n"
+

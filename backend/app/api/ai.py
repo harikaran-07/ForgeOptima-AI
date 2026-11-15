@@ -84,7 +84,12 @@ def history(
     limit: int = Query(30, ge=1, le=100),
 ):
     """Lists conversations belonging exclusively to the requesting user session."""
-    return conv_mgr.list_conversations(db, session_id=session_id, limit=limit)
+    try:
+        return conv_mgr.list_conversations(db, session_id=session_id, limit=limit)
+    except Exception as exc:
+        log.warning("Could not list conversations (%s), returning empty list", exc)
+        return []
+
 
 
 @router.get("/history/{conversation_id}", response_model=ConversationDetail)
