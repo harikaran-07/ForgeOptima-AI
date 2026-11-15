@@ -140,9 +140,8 @@ def _init_reference_data_background():
             log.warning("Could not auto-train models: %s", train_exc)
 
 
-@asynccontextmanager
-async def lifespan(_app: FastAPI):
-    import asyncio
+def _init_database_and_models_background():
+    """Performs schema verification, reference seeding, and ML model checks in background."""
     try:
         Base.metadata.create_all(bind=engine)
         # Ensure session_id column exists on ai_conversations for multi-user support
@@ -153,13 +152,19 @@ async def lifespan(_app: FastAPI):
                 conn.commit()
         except Exception:
             pass
-        log.info("Database ready (%s)", "sqlite" if settings.database_url.startswith("sqlite") else "postgresql")
+        log.info("Database schema verified (%s)", "sqlite" if settings.database_url.startswith("sqlite") else "postgresql")
     except Exception as db_exc:
-        log.error("Database connection initialization failed: %s. Continuing with startup.", db_exc)
+        log.error("Database connection initialization failed: %s", db_exc)
 
-    # Run reference data seeding and model loading in background thread so Uvicorn binds to port immediately
-    asyncio.create_task(asyncio.to_thread(_init_reference_data_background))
+    _init_reference_data_background()
 
+
+@asynccontextmanager
+async def lifespan(_app: FastAPI):
+    import asyncio
+    log.info("Starting ForgeOptima AI backend (version %s)", settings.app_version)
+    # Zero blocking I/O before yield so Uvicorn binds to $PORT in < 50ms
+    asyncio.create_task(asyncio.to_thread(_init_database_and_models_background))
     yield
     log.info("Shutting down ForgeOptima AI backend")
 
