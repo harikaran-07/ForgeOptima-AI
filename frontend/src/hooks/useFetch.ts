@@ -19,15 +19,16 @@ const FALLBACK_DATA: Record<string, unknown> = {
   },
   "/ai/suggestions": {
     suggestions: [
-      "How much time remains for melting?",
-      "Why is my energy consumption increasing?",
       "Explain the current furnace condition.",
+      "Why is energy consumption increasing?",
+      "How much melting time remains?",
       "Compare this heat with previous heats.",
-      "Which historical heat is most similar?",
       "Identify unusual furnace readings.",
-      "Explain the carbon footprint.",
+      "Explain the predicted energy consumption.",
+      "Summarize today's production.",
     ],
     assistant: "SHAKTHI AI",
+    tagline: "Your Intelligent Industrial Furnace Copilot",
     model_note: "SHAKTHI Cloud Engine",
   },
   "/furnace/status": {

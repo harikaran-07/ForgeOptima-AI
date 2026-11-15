@@ -355,21 +355,40 @@ class ChatMessage(BaseModel):
 class ChatRequest(BaseModel):
     message: str = Field(..., min_length=1, max_length=4000)
     conversation_id: Optional[int] = None
+    session_id: Optional[str] = None
 
 
 class AIStatus(BaseModel):
     online: bool
     model: str
+    provider: str = "cloud_engine"
     base_url_configured: bool
     latency_ms: Optional[float] = None
     detail: str
     models_available: list[str] = []
     checked_at: datetime
+    free_tier: bool = True
+    session_id: Optional[str] = None
+
+
+class AIUsageOut(BaseModel):
+    provider: str
+    model: str
+    free_tier_status: str
+    quota_limit: str
+    remaining_estimate: str
+    reset_period: str
+    total_requests: int
+    total_tokens_estimated: int
+    active_sessions: int
+    rate_limit_per_minute: int
+    last_request_at: Optional[datetime] = None
 
 
 class ConversationOut(ORMModel):
     id: int
     title: str
+    session_id: Optional[str] = None
     created_at: datetime
     updated_at: datetime
 

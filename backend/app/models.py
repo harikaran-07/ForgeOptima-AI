@@ -193,6 +193,7 @@ class AIConversation(Base):
     __tablename__ = "ai_conversations"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    session_id: Mapped[Optional[str]] = mapped_column(String(64), nullable=True, index=True)
     title: Mapped[str] = mapped_column(String(160), default="New conversation")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, index=True)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)

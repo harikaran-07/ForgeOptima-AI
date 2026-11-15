@@ -7,7 +7,7 @@ from __future__ import annotations
 
 from functools import lru_cache
 from pathlib import Path
-from typing import List
+from typing import List, Optional
 
 from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -46,11 +46,16 @@ class Settings(BaseSettings):
         "https://forge-optima-ai.vercel.app",
     ]
 
-    # --- Ollama / SHAKTHI AI ----------------------------------------------
-    # Local default; in production point this at a secured inference host.
+    # --- AI Integration (Provider-Independent) -----------------------------
+    ai_provider: str = "auto"                  # auto | groq | gemini | openai | openrouter | ollama | cloud_engine
+    ai_api_key: Optional[str] = None           # Provider API key (or GROQ_API_KEY, GEMINI_API_KEY, etc.)
+    ai_base_url: Optional[str] = None          # Custom endpoint URL
+    ai_model: str = "qwen2.5:3b"               # Default preferred model: Qwen 2.5
+    ai_timeout_seconds: float = 30.0
+    ai_rate_limit_per_minute: int = 20         # Per-session rate limit
     ollama_base_url: str = "http://localhost:11434"
     ollama_model: str = "qwen2.5:3b"
-    ollama_timeout_seconds: float = 180.0
+    ollama_timeout_seconds: float = 60.0
     ai_context_heat_limit: int = 12
     ai_max_message_chars: int = 4000
 

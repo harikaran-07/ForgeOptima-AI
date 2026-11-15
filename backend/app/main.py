@@ -37,6 +37,14 @@ log = get_logger("forgeoptima")
 async def lifespan(_app: FastAPI):
     try:
         Base.metadata.create_all(bind=engine)
+        # Ensure session_id column exists on ai_conversations for multi-user support
+        try:
+            with engine.connect() as conn:
+                from sqlalchemy import text
+                conn.execute(text("ALTER TABLE ai_conversations ADD COLUMN session_id VARCHAR(64)"))
+                conn.commit()
+        except Exception:
+            pass
         log.info("Database ready (%s)", "sqlite" if settings.database_url.startswith("sqlite") else "postgresql")
     except Exception as db_exc:
         log.error("Database connection initialization failed: %s. Continuing with startup.", db_exc)

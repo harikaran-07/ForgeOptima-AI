@@ -220,11 +220,28 @@ export interface ModelStatus {
 export interface AIStatus {
   online: boolean;
   model: string;
+  provider?: string;
   base_url_configured: boolean;
   latency_ms: number | null;
   detail: string;
   models_available: string[];
   checked_at: string;
+  free_tier?: boolean;
+  session_id?: string;
+}
+
+export interface AIUsage {
+  provider: string;
+  model: string;
+  free_tier_status: string;
+  quota_limit: string;
+  remaining_estimate: string;
+  reset_period: string;
+  total_requests: number;
+  total_tokens_estimated: number;
+  active_sessions: number;
+  rate_limit_per_minute: number;
+  last_request_at: string | null;
 }
 
 export interface LiveSim {

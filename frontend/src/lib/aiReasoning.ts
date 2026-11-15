@@ -75,6 +75,15 @@ export function generateClientGroundedResponse(userQuery: string): string {
     );
   }
 
+  // 7. Production summary / Shift performance
+  if (q.includes("production") || q.includes("summar") || q.includes("shift") || q.includes("today") || q.includes("output") || q.includes("performance")) {
+    return (
+      "Today's furnace production across Furnace IF-01 logged 6 completed heats totaling 29,850 kg of processed metal (predominantly MS and SS304). " +
+      "Total energy consumed stands at 17,450 kWh with an average specific energy of 0.5846 kWh/kg, operating at 91.8% fleet efficiency. " +
+      "Zero critical safety anomalies were logged during this shift, and avoided carbon emissions stand at ~820 kg CO₂ compared to standard induction baselines."
+    );
+  }
+
   // Default general industrial response
   return (
     "SHAKTHI AI decision support: telemetry for furnace IF-01 indicates normal operational parameters. " +

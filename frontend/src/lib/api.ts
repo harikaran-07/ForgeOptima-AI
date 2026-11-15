@@ -3,6 +3,16 @@ const defaultBase = typeof window !== "undefined" && window.location.hostname.in
   : "";
 export const BASE = (import.meta.env.VITE_API_BASE_URL || defaultBase).replace(/\/$/, "");
 
+export function getSessionId(): string {
+  if (typeof window === "undefined") return "sess_default";
+  let id = localStorage.getItem("forgeoptima_session_id");
+  if (!id) {
+    id = "sess_" + Math.random().toString(36).substring(2, 10) + Date.now().toString(36);
+    localStorage.setItem("forgeoptima_session_id", id);
+  }
+  return id;
+}
+
 export class ApiError extends Error {
   status: number;
   constructor(message: string, status: number) {
@@ -33,6 +43,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
       ...init,
       headers: {
         ...(init?.body && !(init.body instanceof FormData) ? { "Content-Type": "application/json" } : {}),
+        "X-Session-ID": getSessionId(),
         ...(init?.headers ?? {}),
       },
     });
@@ -92,13 +103,16 @@ export async function streamChat(
   try {
     const fetchPromise = fetch(`${BASE}/api/ai/chat`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ message, conversation_id: conversationId }),
+      headers: {
+        "Content-Type": "application/json",
+        "X-Session-ID": getSessionId(),
+      },
+      body: JSON.stringify({ message, conversation_id: conversationId, session_id: getSessionId() }),
       signal,
     });
-    // If backend doesn't connect within 6s, fall back to instant client engine
+    // Allow up to 25s for Render free-tier instance wake-up / provider completion before fallback
     const timeoutPromise = new Promise<never>((_, reject) =>
-      setTimeout(() => reject(new Error("Timeout")), 6000)
+      setTimeout(() => reject(new Error("Timeout")), 25000)
     );
     res = await Promise.race([fetchPromise, timeoutPromise]);
   } catch {
