@@ -33,21 +33,8 @@ configure_logging()
 log = get_logger("forgeoptima")
 
 
-@asynccontextmanager
-async def lifespan(_app: FastAPI):
-    try:
-        Base.metadata.create_all(bind=engine)
-        # Ensure session_id column exists on ai_conversations for multi-user support
-        try:
-            with engine.connect() as conn:
-                from sqlalchemy import text
-                conn.execute(text("ALTER TABLE ai_conversations ADD COLUMN session_id VARCHAR(64)"))
-                conn.commit()
-        except Exception:
-            pass
-        log.info("Database ready (%s)", "sqlite" if settings.database_url.startswith("sqlite") else "postgresql")
-    except Exception as db_exc:
-        log.error("Database connection initialization failed: %s. Continuing with startup.", db_exc)
+def _init_reference_data_background():
+    """Initializes seed users, furnace, profiles, and initial heats in background."""
     try:
         with SessionLocal() as session:
             if not session.scalar(select(User).limit(1)):
@@ -92,7 +79,7 @@ async def lifespan(_app: FastAPI):
                 from pathlib import Path
                 heats_csv = Path(settings.dataset_path)
                 if heats_csv.exists():
-                    log.info("Populating initial heats from %s...", heats_csv.name)
+                    log.info("Populating initial heats from %s in background...", heats_csv.name)
                     import pandas as pd
                     from datetime import datetime, timezone
                     df = pd.read_csv(heats_csv)
@@ -134,15 +121,15 @@ async def lifespan(_app: FastAPI):
                     session.add_all(records)
                     session.commit()
                     count = session.scalar(select(func.count(HeatRecord.id))) or 0
-                    log.info("Auto-populated %s heats into database.", count)
-        log.info("Heat records in database: %s", count)
+                    log.info("Auto-populated %s heats into database in background.", count)
+            log.info("Heat records in database: %s", count)
     except Exception as exc:  # pragma: no cover
-        log.warning("Could not initialize reference data: %s", exc)
+        log.warning("Background reference data initialization notice: %s", exc)
 
     if registry.is_ready():
         log.info("ML models loaded (version %s)", registry.version)
     else:
-        log.warning("No trained model artifacts found — attempting auto-training...")
+        log.info("Attempting background model training...")
         try:
             from .ml.training import train_all
             train_all()
@@ -151,6 +138,28 @@ async def lifespan(_app: FastAPI):
                 log.info("ML models auto-trained and loaded (version %s)", registry.version)
         except Exception as train_exc:
             log.warning("Could not auto-train models: %s", train_exc)
+
+
+@asynccontextmanager
+async def lifespan(_app: FastAPI):
+    import asyncio
+    try:
+        Base.metadata.create_all(bind=engine)
+        # Ensure session_id column exists on ai_conversations for multi-user support
+        try:
+            with engine.connect() as conn:
+                from sqlalchemy import text
+                conn.execute(text("ALTER TABLE ai_conversations ADD COLUMN session_id VARCHAR(64)"))
+                conn.commit()
+        except Exception:
+            pass
+        log.info("Database ready (%s)", "sqlite" if settings.database_url.startswith("sqlite") else "postgresql")
+    except Exception as db_exc:
+        log.error("Database connection initialization failed: %s. Continuing with startup.", db_exc)
+
+    # Run reference data seeding and model loading in background thread so Uvicorn binds to port immediately
+    asyncio.create_task(asyncio.to_thread(_init_reference_data_background))
+
     yield
     log.info("Shutting down ForgeOptima AI backend")
 

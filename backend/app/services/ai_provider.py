@@ -68,19 +68,33 @@ def detect_provider(override_key: Optional[str] = None) -> tuple[str, str, Optio
 
     Priority:
     1. override_key (passed directly by user session/request)
-    2. GEMINI_API_KEY / AI_API_KEY (Google Gemini 2.0 Flash / 1.5 Flash cloud)
-    3. GROQ_API_KEY (Groq high-speed cloud)
+    2. GEMINI_API_KEY / GOOGLE_API_KEY / AI_API_KEY / GEMINI_KEY / GOOGLE_KEY
+    3. GROQ_API_KEY (Groq cloud)
     4. OPENROUTER_API_KEY / OPENAI_API_KEY
     """
     prov = (os.getenv("AI_PROVIDER") or settings.ai_provider or "gemini").lower()
     custom_model = os.getenv("AI_MODEL") or settings.ai_model
     custom_base = os.getenv("AI_BASE_URL") or settings.ai_base_url
-    api_key = override_key or os.getenv("AI_API_KEY")
 
-    gemini_key = override_key or os.getenv("GEMINI_API_KEY") or getattr(settings, "gemini_api_key", None) or api_key
-    groq_key = os.getenv("GROQ_API_KEY") or api_key
-    openrouter_key = os.getenv("OPENROUTER_API_KEY")
-    openai_key = os.getenv("OPENAI_API_KEY")
+    raw_gemini_key = (
+        override_key
+        or os.getenv("GEMINI_API_KEY")
+        or os.getenv("GOOGLE_API_KEY")
+        or os.getenv("AI_API_KEY")
+        or os.getenv("GEMINI_KEY")
+        or os.getenv("GOOGLE_KEY")
+        or getattr(settings, "gemini_api_key", None)
+        or getattr(settings, "google_api_key", None)
+        or getattr(settings, "ai_api_key", None)
+        or ""
+    )
+    gemini_key = str(raw_gemini_key).strip() if raw_gemini_key else None
+    if not gemini_key:
+        gemini_key = None
+
+    groq_key = (os.getenv("GROQ_API_KEY") or "").strip() or None
+    openrouter_key = (os.getenv("OPENROUTER_API_KEY") or "").strip() or None
+    openai_key = (os.getenv("OPENAI_API_KEY") or "").strip() or None
 
     # 1. Google Gemini (Primary requested engine)
     if prov == "gemini" or gemini_key:
@@ -144,67 +158,122 @@ async def check_provider_status() -> dict[str, Any]:
     }
 
 
+def format_gemini_messages(messages: list[dict[str, str]]) -> tuple[Optional[str], list[dict[str, Any]]]:
+    """Formats standard messages into Gemini API compliant alternating turns."""
+    system_text_parts: list[str] = []
+    raw_turns: list[dict[str, str]] = []
+
+    for m in messages:
+        role = (m.get("role") or "user").lower()
+        text = (m.get("content") or "").strip()
+        if not text:
+            continue
+        if role == "system":
+            system_text_parts.append(text)
+        elif role in ("assistant", "model"):
+            raw_turns.append({"role": "model", "text": text})
+        else:
+            raw_turns.append({"role": "user", "text": text})
+
+    system_instruction = "\n\n".join(system_text_parts) if system_text_parts else None
+
+    # Merge consecutive turns with the same role
+    merged: list[dict[str, str]] = []
+    for turn in raw_turns:
+        if merged and merged[-1]["role"] == turn["role"]:
+            merged[-1]["text"] += f"\n\n{turn['text']}"
+        else:
+            merged.append(dict(turn))
+
+    # Gemini requires first turn to be 'user'
+    while merged and merged[0]["role"] != "user":
+        merged.pop(0)
+
+    # Gemini requires last turn to be 'user'
+    while merged and merged[-1]["role"] != "user":
+        merged.pop()
+
+    if not merged:
+        merged = [{"role": "user", "text": "Hello"}]
+
+    contents = [
+        {"role": turn["role"], "parts": [{"text": turn["text"]}]}
+        for turn in merged
+    ]
+    return system_instruction, contents
+
+
 async def stream_gemini_native(
     api_key: str,
     model: str,
     messages: list[dict[str, str]],
     timeout_seconds: float = 30.0,
 ) -> AsyncIterator[str]:
-    """Streams SSE tokens directly from Google Gemini's native Generative Language API."""
-    clean_model = model if model.startswith("gemini-") else "gemini-2.0-flash"
-    url = f"https://generativelanguage.googleapis.com/v1beta/models/{clean_model}:streamGenerateContent?alt=sse&key={api_key}"
-
-    system_text = ""
-    contents = []
-    for m in messages:
-        role = m.get("role", "user")
-        text = m.get("content", "")
-        if role == "system":
-            system_text = text
-        elif role == "assistant":
-            contents.append({"role": "model", "parts": [{"text": text}]})
-        else:
-            contents.append({"role": "user", "parts": [{"text": text}]})
-
+    """Streams SSE tokens directly from Google Gemini's native Generative Language API with multi-model fallback."""
+    system_text, contents = format_gemini_messages(messages)
     payload: dict[str, Any] = {
         "contents": contents,
         "generationConfig": {
             "temperature": 0.4,
-            "maxOutputTokens": 1200,
+            "maxOutputTokens": 1500,
         },
     }
     if system_text:
         payload["systemInstruction"] = {"parts": [{"text": system_text}]}
 
-    timeout = httpx.Timeout(timeout_seconds, connect=6.0)
-    async with httpx.AsyncClient(timeout=timeout) as client:
-        async with client.stream("POST", url, json=payload) as response:
-            if response.status_code != 200:
-                body = await response.aread()
-                err_text = body.decode(errors="ignore")[:300]
-                try:
-                    err_json = json.loads(err_text)
-                    err_msg = err_json.get("error", {}).get("message", err_text)
-                except Exception:
-                    err_msg = err_text
-                raise RuntimeError(f"{response.status_code}: {err_msg}")
+    clean_model = model if model.startswith("gemini-") else "gemini-2.0-flash"
+    candidates = [clean_model]
+    for fallback in ["gemini-2.0-flash", "gemini-1.5-flash"]:
+        if fallback not in candidates:
+            candidates.append(fallback)
 
-            async for line in response.aiter_lines():
-                line = line.strip()
-                if not line or not line.startswith("data:"):
-                    continue
-                data_str = line[5:].strip()
-                try:
-                    chunk = json.loads(data_str)
-                    candidates = chunk.get("candidates", [])
-                    if candidates:
-                        parts = candidates[0].get("content", {}).get("parts", [])
-                        for p in parts:
-                            txt = p.get("text", "")
-                            if txt:
-                                yield txt
-                except json.JSONDecodeError:
-                    continue
+    last_exc: Optional[Exception] = None
+    timeout = httpx.Timeout(timeout_seconds, connect=6.0)
+
+    for target_model in candidates:
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/{target_model}:streamGenerateContent?alt=sse&key={api_key}"
+        token_emitted = False
+        try:
+            async with httpx.AsyncClient(timeout=timeout) as client:
+                async with client.stream("POST", url, json=payload) as response:
+                    if response.status_code != 200:
+                        body = await response.aread()
+                        err_text = body.decode(errors="ignore")[:300]
+                        try:
+                            err_json = json.loads(err_text)
+                            err_msg = err_json.get("error", {}).get("message", err_text)
+                        except Exception:
+                            err_msg = err_text
+                        raise RuntimeError(f"{response.status_code} ({target_model}): {err_msg}")
+
+                    async for line in response.aiter_lines():
+                        line = line.strip()
+                        if not line or not line.startswith("data:"):
+                            continue
+                        data_str = line[5:].strip()
+                        try:
+                            chunk = json.loads(data_str)
+                            candidates_list = chunk.get("candidates", [])
+                            if candidates_list:
+                                parts = candidates_list[0].get("content", {}).get("parts", [])
+                                for p in parts:
+                                    txt = p.get("text", "")
+                                    if txt:
+                                        token_emitted = True
+                                        yield txt
+                        except json.JSONDecodeError:
+                            continue
+
+            if token_emitted:
+                return
+        except Exception as exc:
+            last_exc = exc
+            log.warning("Gemini stream with %s failed: %s", target_model, exc)
+            if token_emitted:
+                raise exc
+
+    if last_exc:
+        raise last_exc
 
 
 async def stream_openai_compatible(
@@ -303,11 +372,10 @@ async def stream_chat_provider(
     if provider == "gemini":
         if not key:
             yield (
-                "⚠️ **Google Gemini API Key Not Configured**\n\n"
-                "To receive live generative answers from Google Gemini:\n\n"
-                "1. Click the **'Set Gemini API Key'** button in the toolbar above and enter your key, OR\n"
-                "2. Add `GEMINI_API_KEY=your_key` in your Render Environment settings.\n\n"
-                "*(Get a 100% free Gemini API key in 30 seconds at [Google AI Studio](https://aistudio.google.com/app/apikey))*"
+                "⚠️ **Google Gemini API Key Not Configured on Server**\n\n"
+                "The ForgeOptima backend does not have `GEMINI_API_KEY` set.\n\n"
+                "Please add `GEMINI_API_KEY` to your Render Environment Variables.\n\n"
+                "*(Get a free Gemini API key in 30 seconds at [Google AI Studio](https://aistudio.google.com/app/apikey))*"
             )
             return
 

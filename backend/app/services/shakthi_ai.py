@@ -70,8 +70,9 @@ async def chat_stream(
 
     # 5. Build conversation message history
     history = load_conversation_messages(db, conversation_id)
+    full_system = f"{SYSTEM_PROMPT}\n\n{format_context_prompt(context)}"
     messages: list[dict[str, str]] = [
-        {"role": "system", "content": SYSTEM_PROMPT}
+        {"role": "system", "content": full_system}
     ]
     for h in history[:-1]:  # exclude the user message we just appended
         messages.append(h)

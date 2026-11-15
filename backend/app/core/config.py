@@ -49,6 +49,7 @@ class Settings(BaseSettings):
     # --- AI Integration (Google Gemini Primary) ----------------------------
     ai_provider: str = "gemini"                # gemini | groq | openai | openrouter | cloud_engine
     gemini_api_key: Optional[str] = None       # Primary Google Gemini API key
+    google_api_key: Optional[str] = None       # Alias Google Gemini API key
     ai_api_key: Optional[str] = None           # Fallback generic API key
     ai_base_url: Optional[str] = None          # Custom endpoint URL
     ai_model: str = "gemini-2.0-flash"         # Google Gemini 2.0 Flash (Free Tier)

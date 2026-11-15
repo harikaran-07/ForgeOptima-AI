@@ -97,40 +97,55 @@ export async function streamChat(
   message: string,
   conversationId: number | null,
   onEvent: (event: { type: string; text?: string; conversation_id?: number; message?: string; model?: string; provider?: string }) => void,
-  signal?: AbortSignal,
-  customApiKey?: string
+  signal?: AbortSignal
 ) {
-  const storedKey = customApiKey || (typeof window !== "undefined" ? localStorage.getItem("forgeoptima_gemini_api_key") || "" : "");
+  const sessionId = getSessionId();
 
-  // 1. First attempt: FastAPI backend /api/ai/chat
-  let res: Response | null = null;
+  // Call FastAPI backend /api/ai/chat directly
+  let res: Response;
   try {
-    const fetchPromise = fetch(`${BASE}/api/ai/chat`, {
+    res = await fetch(`${BASE}/api/ai/chat`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "X-Session-ID": getSessionId(),
-        ...(storedKey ? { "X-Gemini-API-Key": storedKey } : {}),
+        "X-Session-ID": sessionId,
       },
       body: JSON.stringify({
         message,
         conversation_id: conversationId,
-        session_id: getSessionId(),
-        api_key: storedKey || undefined,
+        session_id: sessionId,
       }),
       signal,
     });
-    // Allow up to 35s for backend response
-    const timeoutPromise = new Promise<never>((_, reject) =>
-      setTimeout(() => reject(new Error("Timeout")), 35000)
-    );
-    res = await Promise.race([fetchPromise, timeoutPromise]);
   } catch {
-    res = null;
+    if (signal?.aborted) return;
+    const isRender = BASE.includes("onrender.com");
+    const errMsg = isRender
+      ? "Connecting to ForgeOptima AI backend on Render... The free server may be waking up from sleep (typically 30–50 seconds). Please retry in a moment."
+      : "Could not connect to ForgeOptima backend server. Please verify the service is running.";
+    onEvent({ type: "start", conversation_id: conversationId || Date.now() });
+    onEvent({ type: "delta", text: `⚠️ **Connection Notice:**\n\n${errMsg}` });
+    onEvent({ type: "done" });
+    return;
   }
 
-  // 2. If FastAPI backend answered, stream its SSE chunks
-  if (res && res.ok && res.body) {
+  if (!res.ok) {
+    let errorDetail = `Server responded with status ${res.status}`;
+    try {
+      const errJson = await res.json();
+      if (errJson.detail) {
+        errorDetail = typeof errJson.detail === "string" ? errJson.detail : JSON.stringify(errJson.detail);
+      }
+    } catch {
+      /* ignore */
+    }
+    onEvent({ type: "start", conversation_id: conversationId || Date.now() });
+    onEvent({ type: "delta", text: `⚠️ **Server Error (${res.status}):**\n\n${errorDetail}` });
+    onEvent({ type: "done" });
+    return;
+  }
+
+  if (res.body) {
     const reader = res.body.getReader();
     const decoder = new TextDecoder();
     let buffer = "";
@@ -150,78 +165,5 @@ export async function streamChat(
         }
       }
     }
-    return;
   }
-
-  // 3. Direct Gemini Fallback: If backend is asleep/deploying on Render AND user has a Gemini key:
-  if (storedKey) {
-    try {
-      const convId = conversationId || Date.now();
-      onEvent({ type: "start", conversation_id: convId, model: "gemini-2.0-flash", provider: "gemini" });
-      const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:streamGenerateContent?alt=sse&key=${storedKey}`;
-      const geminiRes = await fetch(geminiUrl, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          contents: [{ role: "user", parts: [{ text: message }] }],
-          systemInstruction: {
-            parts: [{
-              text: "You are SHAKTHI AI, an advanced industrial furnace, metallurgy, and energy optimization generative AI copilot for ForgeOptima AI. Provide expert, comprehensive, articulate answers formatted in clean Markdown without robotic bracket tags."
-            }]
-          },
-          generationConfig: { temperature: 0.4, maxOutputTokens: 1200 },
-        }),
-        signal,
-      });
-
-      if (!geminiRes.ok) {
-        const errJson = await geminiRes.json().catch(() => ({}));
-        const errMsg = errJson?.error?.message || `HTTP ${geminiRes.status}`;
-        onEvent({ type: "delta", text: `⚠️ **Google Gemini API Error:**\n\n${errMsg}\n\nPlease check that your Gemini API key is valid at [Google AI Studio](https://aistudio.google.com/app/apikey).` });
-        onEvent({ type: "done" });
-        return;
-      }
-
-      if (geminiRes.body) {
-        const reader = geminiRes.body.getReader();
-        const decoder = new TextDecoder();
-        let buffer = "";
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-          buffer += decoder.decode(value, { stream: true });
-          const frames = buffer.split("\n\n");
-          buffer = frames.pop() ?? "";
-          for (const frame of frames) {
-            const line = frame.split("\n").find((l) => l.startsWith("data:"));
-            if (!line) continue;
-            try {
-              const chunk = JSON.parse(line.slice(5).trim());
-              const text = chunk?.candidates?.[0]?.content?.parts?.[0]?.text;
-              if (text) onEvent({ type: "delta", text });
-            } catch {
-              /* ignore */
-            }
-          }
-        }
-        onEvent({ type: "done" });
-        return;
-      }
-    } catch {
-      /* fall to instruction below */
-    }
-  }
-
-  // 4. Guidance when backend is asleep and no key is configured
-  const convId = conversationId || Date.now();
-  onEvent({ type: "start", conversation_id: convId });
-  onEvent({
-    type: "delta",
-    text: "⚠️ **Google Gemini API Key Required for Live Generative Answers**\n\n" +
-          "To enable real-time generative responses from Google Gemini:\n\n" +
-          "1. Click the **'Set Gemini API Key'** button in the toolbar above and paste your Gemini API key, OR\n" +
-          "2. Add `GEMINI_API_KEY` to your environment variables on Render (or local `.env`).\n\n" +
-          "*(You can get a 100% free Gemini API key in 30 seconds at [Google AI Studio](https://aistudio.google.com/app/apikey))*"
-  });
-  onEvent({ type: "done" });
 }
