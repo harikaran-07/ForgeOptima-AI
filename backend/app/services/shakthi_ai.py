@@ -64,14 +64,13 @@ async def chat_stream(
     # 3. Store user message in DB
     append_message(db, conversation_id, role="user", content=message)
 
-    # 4. Assemble real furnace context
+    # 4. Assemble furnace context for reference
     context = build_furnace_context(db)
-    context_str = format_context_prompt(context)
 
     # 5. Build conversation message history
     history = load_conversation_messages(db, conversation_id)
     messages: list[dict[str, str]] = [
-        {"role": "system", "content": f"{SYSTEM_PROMPT}\n\n{context_str}"}
+        {"role": "system", "content": SYSTEM_PROMPT}
     ]
     for h in history[:-1]:  # exclude the user message we just appended
         messages.append(h)

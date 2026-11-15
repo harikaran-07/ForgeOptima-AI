@@ -277,11 +277,11 @@ export default function ShakthiAI() {
         {/* Main Conversation Stream (3 cols) */}
         <div className="xl:col-span-3">
           <Panel
-            title="Furnace Telemetry & Gemini Copilot Stream"
+            title="Google Gemini Generative Stream"
             subtitle={
               conversationId
                 ? `Active Session Conversation #${conversationId}`
-                : "New session · Grounded in live plant telemetry and ML models"
+                : "New session · Powered by Google Gemini Generative AI"
             }
             action={
               <div className="flex items-center gap-2">
@@ -319,8 +319,8 @@ export default function ShakthiAI() {
                     Powered by Google Gemini Cloud Intelligence
                   </p>
                   <p className="mt-2 text-[12px] leading-relaxed text-ink-400 max-w-md mx-auto">
-                    Live decision support grounded in furnace sensor telemetry, RandomForest melting time forecasts,
-                    XGBoost energy consumption predictions, KNN historical cohorts, and IsolationForest anomaly audits.
+                    Expert generative AI assistant for industrial induction furnaces, melting metallurgy,
+                    power optimization, energy efficiency, and operational intelligence.
                   </p>
 
                   <div className="mt-5 text-left">
@@ -387,7 +387,7 @@ export default function ShakthiAI() {
                         <div className="mt-2.5 flex items-center justify-between border-t border-base-750/70 pt-1.5 text-[10.5px] text-ink-500">
                           <span className="flex items-center gap-1 text-[10px] text-ink-500 font-mono">
                             <Sparkles className="h-2.5 w-2.5 text-violet" />
-                            Grounded Telemetry · Gemini
+                            Google Gemini Generative AI
                           </span>
                           <button
                             onClick={() => copyToClipboard(message.content, index)}
@@ -421,7 +421,7 @@ export default function ShakthiAI() {
                   </div>
                   <div className="rounded-xl border border-base-700 bg-base-900/90 px-4 py-3 text-[12px] text-ink-400 flex items-center gap-2">
                     <span className="inline-block h-2 w-2 rounded-full bg-violet animate-ping" />
-                    <span>Analyzing furnace telemetry & synthesizing grounded response with Google Gemini...</span>
+                    <span>Generating answer with Google Gemini...</span>
                   </div>
                 </div>
               )}
@@ -677,13 +677,10 @@ export default function ShakthiAI() {
           </Panel>
 
           {/* Plant Intelligence Grounding Notice */}
-          <Notice tone="info" title="Zero-Hallucination Guardrails">
+          <Notice tone="info" title="Google Gemini Generative AI">
             <p className="text-[11.5px] leading-relaxed text-ink-300">
-              SHAKTHI AI is read-only decision support. Telemetry and predictions come strictly from the backend
-              ML models and database. Every answer clearly marks{" "}
-              <span className="text-violet font-semibold">[MEASURED]</span>,{" "}
-              <span className="text-cyan font-semibold">[SIMULATED]</span>, or{" "}
-              <span className="text-electric font-semibold">[PREDICTION]</span>.
+              SHAKTHI AI delivers high-intelligence generative answers powered directly by Google Gemini.
+              Ask any question about induction furnace operations, metallurgy, steel grades, thermal cycles, and energy optimization.
             </p>
           </Notice>
 

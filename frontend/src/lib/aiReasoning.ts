@@ -17,12 +17,10 @@ export function generateClientGroundedResponse(userQuery: string): string {
   // 1. Melting time / Remaining duration
   if (q.includes("time") || q.includes("remain") || q.includes("duration") || q.includes("how long") || q.includes("melt")) {
     return (
-      "Based on plant telemetry and the RandomForest prediction model for the active 5,000 kg Mild Steel heat (Heat H-1200), " +
-      "the estimated total melting time is 42.4 minutes with an uncertainty band of 39.1–45.7 min " +
-      "(model accuracy: MAE 2.82 min, R² 0.914). " +
-      "At the current active heating stage (~62% melt progress), estimated remaining time to tap temperature (1,520°C) " +
-      "is approximately 16.1 minutes. " +
-      "Note: Decision-support estimate only; verify bath temperature with an optical immersion pyrometer before tapping."
+      "For a 5,000 kg Mild Steel charge in a medium-frequency induction furnace, the typical melting cycle is approximately 42.4 minutes " +
+      "(standard operating range: 39–46 minutes depending on scrap density and preheating). " +
+      "At 60–65% melt progress with bath temperature approaching 1,420°C, the estimated remaining time to reach the 1,520°C tap temperature is approximately 16 minutes. " +
+      "For optimal thermal efficiency, maintain full rated coil power during the bulk melt phase and verify final temperature with an optical immersion pyrometer before tapping."
     );
   }
 
@@ -86,8 +84,9 @@ export function generateClientGroundedResponse(userQuery: string): string {
 
   // Default general industrial response
   return (
-    "SHAKTHI AI decision support: telemetry for furnace IF-01 indicates normal operational parameters. " +
-    "Current Mild Steel charge is at 1,418°C / 1,920 kW with an estimated 16 minutes remaining to tap. " +
-    "You can ask specifically about melting time, energy consumption, furnace condition, similar historical heats, or anomaly audits."
+    "I am SHAKTHI AI, your intelligent industrial furnace copilot powered by Google Gemini. " +
+    "I can answer any question about coreless and channel induction furnaces, metallurgy, scrap charge calculation, " +
+    "power factor optimization, melting times, thermal efficiency, steel grades (MS, SS304, SS316, Alloy Steel, Cast Iron), " +
+    "and emission reduction. What would you like to explore or optimize?"
   );
 }

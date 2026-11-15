@@ -164,8 +164,8 @@ async def stream_openai_compatible(
         "model": model,
         "messages": messages,
         "stream": True,
-        "temperature": 0.25,
-        "max_tokens": 800,
+        "temperature": 0.4,
+        "max_tokens": 1200,
     }
     timeout = httpx.Timeout(timeout_seconds, connect=5.0)
     async with httpx.AsyncClient(timeout=timeout) as client:
