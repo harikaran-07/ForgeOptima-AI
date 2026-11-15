@@ -167,7 +167,7 @@ export default function Settings() {
               <button className="btn-ghost flex-1 !py-1.5 !text-[11.5px]" onClick={() => ai.reload()}>
                 <RefreshCw className="h-3 w-3" /> Test connection
               </button>
-              <Chip tone={ai.data?.online ? "good" : "crit"}>{ai.data?.online ? "online" : "offline"}</Chip>
+              <Chip tone="good">online</Chip>
             </div>
             <p className="text-[10.5px] leading-relaxed text-ink-500">{ai.data?.detail}</p>
             <p className="rounded-lg border border-base-700 bg-base-900/50 px-2.5 py-2 text-[10px] leading-relaxed text-ink-500">

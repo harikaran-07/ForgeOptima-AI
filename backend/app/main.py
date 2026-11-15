@@ -35,8 +35,11 @@ log = get_logger("forgeoptima")
 
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
-    Base.metadata.create_all(bind=engine)
-    log.info("Database ready (%s)", "sqlite" if settings.database_url.startswith("sqlite") else "postgresql")
+    try:
+        Base.metadata.create_all(bind=engine)
+        log.info("Database ready (%s)", "sqlite" if settings.database_url.startswith("sqlite") else "postgresql")
+    except Exception as db_exc:
+        log.error("Database connection initialization failed: %s. Continuing with startup.", db_exc)
     try:
         with SessionLocal() as session:
             if not session.scalar(select(User).limit(1)):

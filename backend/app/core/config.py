@@ -69,9 +69,12 @@ class Settings(BaseSettings):
     def _normalize_database_url(cls, value):
         if isinstance(value, str):
             if value.startswith("postgres://"):
-                return value.replace("postgres://", "postgresql+psycopg://", 1)
+                value = value.replace("postgres://", "postgresql+psycopg://", 1)
             if value.startswith("postgresql://") and "+psycopg" not in value:
-                return value.replace("postgresql://", "postgresql+psycopg://", 1)
+                value = value.replace("postgresql://", "postgresql+psycopg://", 1)
+            if "postgresql+psycopg://" in value and "sslmode" not in value and "localhost" not in value and "127.0.0.1" not in value:
+                sep = "&" if "?" in value else "?"
+                value = f"{value}{sep}sslmode=require"
         return value
 
     @field_validator("cors_origins", mode="before")

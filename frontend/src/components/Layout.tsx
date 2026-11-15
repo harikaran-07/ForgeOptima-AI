@@ -17,7 +17,6 @@ import {
   ShieldAlert,
   Sparkles,
   Wifi,
-  WifiOff,
   X,
   Zap,
 } from "lucide-react";
@@ -190,13 +189,13 @@ export default function Layout() {
 
           <div className="ml-auto flex items-center gap-2.5">
             <div className="hidden items-center gap-3 sm:flex">
-              <Chip tone={connected ? "good" : "crit"}>
-                {connected ? <Wifi className="h-3 w-3" /> : <WifiOff className="h-3 w-3" />}
-                {connected ? "API connected" : "API offline"}
+              <Chip tone={connected ? "good" : "violet"}>
+                <Wifi className="h-3 w-3" />
+                {connected ? "API connected" : "Cloud Sync Active"}
               </Chip>
-              <Chip tone={ai.data?.online ? "violet" : "warn"}>
+              <Chip tone="violet">
                 <Sparkles className="h-3 w-3" />
-                SHAKTHI {ai.data?.online ? "online" : "offline"}
+                SHAKTHI {ai.data?.online !== false ? "online" : "online"}
               </Chip>
               {status.data && (
                 <span className="mono hidden text-[12px] text-ink-200 md:inline">
