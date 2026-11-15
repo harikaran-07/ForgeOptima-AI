@@ -1,4 +1,5 @@
 import { FormEvent, useEffect, useRef, useState } from "react";
+import { Link } from "react-router-dom";
 import clsx from "clsx";
 import {
   AlertTriangle,
@@ -11,6 +12,7 @@ import {
   Cpu,
   Database,
   Flame,
+  Laptop,
   Layers,
   MessageSquarePlus,
   RefreshCw,
@@ -26,6 +28,7 @@ import { api, getSessionId, streamChat } from "../lib/api";
 import { AIStatus, AIUsage } from "../lib/types";
 import { dt } from "../lib/format";
 import { Chip, ErrorBox, Notice, PageHeader, Panel } from "../components/ui";
+import { getSavedLocalEndpoint, getSavedLocalModel, streamLocalOllama } from "../lib/localOllama";
 
 interface Message {
   role: "user" | "assistant";
@@ -79,12 +82,21 @@ export default function ShakthiAI() {
   const [contextOpen, setContextOpen] = useState(false);
   const [usageOpen, setUsageOpen] = useState(false);
   const [clearConfirm, setClearConfirm] = useState(false);
+  const [aiMode, setAiMode] = useState<"cloud" | "local">(() => {
+    return (localStorage.getItem("forgeoptima_ai_mode") as "cloud" | "local") || "cloud";
+  });
 
   const abortRef = useRef<AbortController | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
   const sessionId = getSessionId();
+  const contextFetch = useFetch<{ context: Record<string, unknown>; system_prompt: string }>("/ai/context");
+
+  const switchMode = (mode: "cloud" | "local") => {
+    setAiMode(mode);
+    localStorage.setItem("forgeoptima_ai_mode", mode);
+  };
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
@@ -118,6 +130,60 @@ export default function ShakthiAI() {
     const controller = new AbortController();
     abortRef.current = controller;
 
+    // LOCAL MODE: Directly route to local Ollama runtime
+    if (aiMode === "local") {
+      const endpoint = getSavedLocalEndpoint();
+      const model = getSavedLocalModel();
+      const ctxString = contextFetch.data?.context ? JSON.stringify(contextFetch.data.context, null, 1) : "";
+      const systemContent = `${contextFetch.data?.system_prompt || "You are SHAKTHI AI, the industrial furnace copilot."}\n\n=== CURRENT PLANT CONTEXT ===\n${ctxString}\n=== END CONTEXT ===\n\nDistinguish measured, simulated, predicted, and estimated data. Answer clearly and concisely in industrial units.`;
+
+      const chatPayload = [
+        { role: "system", content: systemContent },
+        ...messages.slice(-8).map((m) => ({ role: m.role, content: m.content })),
+        { role: "user", content: trimmed },
+      ];
+
+      try {
+        await streamLocalOllama(
+          endpoint,
+          model,
+          chatPayload,
+          (delta) => {
+            setMessages((prev) => {
+              const next = [...prev];
+              const last = next[next.length - 1];
+              if (last?.role === "assistant") {
+                next[next.length - 1] = { ...last, content: last.content + delta };
+              }
+              return next;
+            });
+          },
+          () => {
+            setMessages((prev) => {
+              const next = [...prev];
+              const last = next[next.length - 1];
+              if (last?.role === "assistant") next[next.length - 1] = { ...last, streaming: false };
+              return next;
+            });
+            setBusy(false);
+          },
+          (errMsg) => {
+            setError(`Local AI error (${endpoint}): ${errMsg}`);
+            setMessages((prev) => prev.filter((m) => !(m.role === "assistant" && m.streaming && !m.content)));
+            setBusy(false);
+          },
+          controller.signal
+        );
+      } catch (err) {
+        if (!controller.signal.aborted) {
+          setError(err instanceof Error ? err.message : "Local inference failed.");
+          setBusy(false);
+        }
+      }
+      return;
+    }
+
+    // CLOUD MODE: Stream through backend API layer
     try {
       await streamChat(
         trimmed,
@@ -240,26 +306,56 @@ export default function ShakthiAI() {
       <PageHeader
         eyebrow="Module 09 · Industrial Furnace Copilot"
         title="SHAKTHI AI"
-        description="Your Intelligent Industrial Furnace Copilot. Grounded decision support for furnace status, melt predictions, energy, similar heats, anomalies, and carbon footprint — powered by online cloud intelligence."
+        description="Your Intelligent Industrial Furnace Copilot. Grounded decision support for furnace status, melt predictions, energy, similar heats, anomalies, and carbon footprint — powered by online cloud intelligence or your local Qwen 2.5 3B model."
       >
-        <Chip tone={isOnline ? "violet" : "crit"}>
-          <span
+        {/* Mode Selector */}
+        <div className="flex rounded-lg border border-base-700 bg-base-900 p-0.5">
+          <button
+            onClick={() => switchMode("cloud")}
             className={clsx(
-              "h-2 w-2 rounded-full",
-              isOnline ? "animate-pulseSoft bg-violet" : "bg-crit"
+              "rounded px-2.5 py-1 text-[11px] font-medium transition-colors",
+              aiMode === "cloud" ? "bg-violet text-white shadow-sm" : "text-ink-400 hover:text-white"
             )}
-          />
-          {isOnline ? "Cloud AI Online" : "AI Offline"}
-        </Chip>
+          >
+            Cloud Mode
+          </button>
+          <button
+            onClick={() => switchMode("local")}
+            className={clsx(
+              "rounded px-2.5 py-1 text-[11px] font-medium transition-colors flex items-center gap-1",
+              aiMode === "local" ? "bg-electric text-white shadow-sm" : "text-ink-400 hover:text-white"
+            )}
+          >
+            <Laptop className="h-3 w-3" />
+            Local Mode (Qwen 3B)
+          </button>
+        </div>
 
-        <Chip tone="neutral" className="hidden sm:inline-flex">
-          <Cpu className="h-3 w-3 text-ink-400" />
-          <span className="capitalize">{activeProvider}</span> · {activeModel}
-        </Chip>
+        {aiMode === "cloud" ? (
+          <Chip tone={isOnline ? "violet" : "crit"}>
+            <span
+              className={clsx(
+                "h-2 w-2 rounded-full",
+                isOnline ? "animate-pulseSoft bg-violet" : "bg-crit"
+              )}
+            />
+            {isOnline ? "Cloud AI Online" : "AI Offline"}
+          </Chip>
+        ) : (
+          <Chip tone="blue">
+            <span className="h-2 w-2 rounded-full bg-electric animate-pulse" />
+            Local Model Active
+          </Chip>
+        )}
 
-        <Chip tone="good" className="hidden md:inline-flex">
-          ₹0.00 Free Quota
-        </Chip>
+        <Link
+          to="/local-ai"
+          className="btn-ghost !py-1.5 !text-[12px] border-violet/30 text-violet hover:bg-violet/10 flex items-center gap-1.5"
+          title="Open complete local Ollama download and setup guide"
+        >
+          <Cpu className="h-3.5 w-3.5" />
+          <span>Local AI Setup</span>
+        </Link>
 
         <button
           className="btn-ghost !py-1.5 !text-[12px]"

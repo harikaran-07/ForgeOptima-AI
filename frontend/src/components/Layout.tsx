@@ -7,6 +7,7 @@ import {
   BrainCircuit,
   ChevronRight,
   Command,
+  Cpu,
   FileText,
   Flame,
   Gauge,
@@ -35,6 +36,7 @@ const NAV = [
   { to: "/anomalies", label: "Anomaly Detection", icon: ShieldAlert },
   { to: "/history", label: "Heat History", icon: History },
   { to: "/shakthi-ai", label: "SHAKTHI AI", icon: Sparkles },
+  { to: "/local-ai", label: "Run Local AI", icon: Cpu },
   { to: "/reports", label: "Reports & Analytics", icon: FileText },
   { to: "/settings", label: "Settings", icon: SettingsIcon },
 ];
