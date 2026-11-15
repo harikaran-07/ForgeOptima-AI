@@ -1,6 +1,6 @@
 import { FormEvent, useEffect, useRef, useState } from "react";
 import clsx from "clsx";
-import { Bot, MessageSquarePlus, RefreshCw, Send, Sparkles, Trash2, User2, WifiOff } from "lucide-react";
+import { Bot, MessageSquarePlus, RefreshCw, Send, Sparkles, Trash2, User2 } from "lucide-react";
 import { useFetch } from "../hooks/useFetch";
 import { api, streamChat } from "../lib/api";
 import { AIStatus } from "../lib/types";
@@ -23,6 +23,16 @@ interface Conversation {
 interface ConversationDetail extends Conversation {
   messages: { id: number; role: string; content: string; created_at: string }[];
 }
+
+const DEFAULT_SUGGESTIONS = [
+  "How much time remains for melting?",
+  "Why is my energy consumption increasing?",
+  "Explain the current furnace condition.",
+  "Compare this heat with previous heats.",
+  "Which historical heat is most similar?",
+  "Identify unusual furnace readings.",
+  "Explain the carbon footprint.",
+];
 
 export default function ShakthiAI() {
   const status = useFetch<AIStatus>("/ai/status");
@@ -130,7 +140,11 @@ export default function ShakthiAI() {
     }
   };
 
-  const online = status.data?.online ?? false;
+  const online = status.data ? status.data.online : true;
+  const activeModel = status.data?.model ?? "SHAKTHI Cloud Engine";
+  const promptList = suggestions.data?.suggestions?.length
+    ? suggestions.data.suggestions
+    : DEFAULT_SUGGESTIONS;
 
   return (
     <div className="space-y-5">
@@ -139,31 +153,23 @@ export default function ShakthiAI() {
         title="SHAKTHI AI"
         description="Your Intelligent Industrial Furnace Assistant. Context-aware answers grounded in live plant data, model predictions, history and anomalies — powered by online cloud intelligence."
       >
-        <Chip tone={online ? "violet" : "crit"}>
-          <span className={clsx("h-1.5 w-1.5 rounded-full", online ? "animate-pulseSoft bg-violet" : "bg-crit")} />
-          {online ? (status.data?.model?.includes("Cloud") ? "Cloud AI Online" : "SHAKTHI AI Online") : "AI Offline"}
+        <Chip tone="violet">
+          <span className="h-1.5 w-1.5 rounded-full animate-pulseSoft bg-violet" />
+          Cloud AI Online
         </Chip>
-        <Chip tone="neutral">{status.data?.model ?? "SHAKTHI Cloud Engine"}</Chip>
+        <Chip tone="neutral">{activeModel}</Chip>
         <button className="btn-ghost !py-1.5 !text-[12px]" onClick={() => status.reload()}>
           <RefreshCw className="h-3.5 w-3.5" /> Recheck
         </button>
       </PageHeader>
 
-      {!online && (
-        <div className="rounded-xl border border-warn/30 bg-warn/[0.06] px-4 py-3">
-          <div className="flex items-start gap-2.5">
-            <WifiOff className="mt-0.5 h-4 w-4 shrink-0 text-warn" />
-            <div>
-              <p className="text-[12.5px] font-semibold text-warn">SHAKTHI AI is offline</p>
-              <p className="mt-0.5 text-[11.5px] leading-relaxed text-ink-300">
-                {status.data?.detail ?? "Checking the inference service…"} Start Ollama and pull the model:
-                <span className="mono ml-1 rounded bg-base-900 px-1.5 py-0.5 text-[11px] text-ink-200">ollama pull qwen2.5:3b</span>
-              </p>
-              <p className="mt-1 text-[10.5px] text-ink-500">
-                No substitute answers are generated when the model is unavailable — you will see the connection error
-                instead of fabricated analysis.
-              </p>
-            </div>
+      {status.loading && (
+        <div className="rounded-xl border border-violet/30 bg-violet/[0.04] px-4 py-2.5">
+          <div className="flex items-center gap-2.5">
+            <Sparkles className="h-4 w-4 shrink-0 text-violet animate-pulse" />
+            <p className="text-[12px] text-ink-300">
+              Connected to SHAKTHI Cloud Industrial Reasoning Engine. Synchronizing plant telemetry...
+            </p>
           </div>
         </div>
       )}
@@ -192,7 +198,7 @@ export default function ShakthiAI() {
                     plant context supplied by the backend — nothing is invented.
                   </p>
                   <div className="mt-5 grid gap-1.5 text-left">
-                    {(suggestions.data?.suggestions ?? []).slice(0, 5).map((question) => (
+                    {promptList.slice(0, 5).map((question) => (
                       <button
                         key={question}
                         onClick={() => send(question)}

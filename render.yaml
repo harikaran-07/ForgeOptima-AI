@@ -3,7 +3,7 @@ services:
     name: forgeoptima-ai
     runtime: python
     rootDir: backend
-    buildCommand: "pip install -r requirements.txt && python -m scripts.seed"
+    buildCommand: "pip install -r requirements.txt"
     startCommand: "uvicorn app.main:app --host 0.0.0.0 --port $PORT"
     healthCheckPath: /api/health
     envVars:
@@ -11,5 +11,7 @@ services:
         value: 3.12.0
       - key: ENVIRONMENT
         value: production
+      - key: PYTHONPATH
+        value: ".:backend"
       - key: CORS_ORIGINS
         value: "https://forge-optima-ai.vercel.app,http://localhost:5173,http://localhost:4173"

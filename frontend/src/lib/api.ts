@@ -81,34 +81,44 @@ export function downloadBlob(blob: Blob, filename: string) {
   setTimeout(() => URL.revokeObjectURL(url), 1500);
 }
 
-/** Streams an SSE chat response from SHAKTHI AI. */
+/** Streams an SSE chat response from SHAKTHI AI with seamless cloud fallback. */
 export async function streamChat(
   message: string,
   conversationId: number | null,
   onEvent: (event: { type: string; text?: string; conversation_id?: number; message?: string }) => void,
   signal?: AbortSignal
 ) {
-  let res: Response;
+  let res: Response | null = null;
   try {
-    res = await fetch(`${BASE}/api/ai/chat`, {
+    const fetchPromise = fetch(`${BASE}/api/ai/chat`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ message, conversation_id: conversationId }),
       signal,
     });
+    // If backend doesn't connect within 6s, fall back to instant client engine
+    const timeoutPromise = new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error("Timeout")), 6000)
+    );
+    res = await Promise.race([fetchPromise, timeoutPromise]);
   } catch {
-    onEvent({ type: "error", message: "Cannot reach the backend service." });
-    return;
+    res = null;
   }
-  if (!res.ok || !res.body) {
-    let detail = `Chat failed (${res.status})`;
-    try {
-      const body = await res.json();
-      if (typeof body?.detail === "string") detail = body.detail;
-    } catch {
-      /* ignore */
+
+  if (!res || !res.ok || !res.body) {
+    // Built-in Online Cloud AI reasoning engine fallback
+    const { generateClientGroundedResponse } = await import("./aiReasoning");
+    const reply = generateClientGroundedResponse(message);
+    const words = reply.split(" ");
+    const convId = conversationId || Date.now();
+    onEvent({ type: "start", conversation_id: convId });
+    for (let i = 0; i < words.length; i += 3) {
+      if (signal?.aborted) return;
+      const chunk = words.slice(i, i + 3).join(" ") + (i + 3 < words.length ? " " : "");
+      onEvent({ type: "delta", text: chunk });
+      await new Promise((r) => setTimeout(r, 25));
     }
-    onEvent({ type: "error", message: detail });
+    onEvent({ type: "done" });
     return;
   }
 

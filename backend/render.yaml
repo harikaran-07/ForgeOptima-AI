@@ -2,7 +2,7 @@ services:
   - type: web
     name: forgeoptima-ai
     runtime: python
-    buildCommand: "pip install -r requirements.txt && python -m scripts.seed"
+    buildCommand: "pip install -r requirements.txt"
     startCommand: "uvicorn app.main:app --host 0.0.0.0 --port $PORT"
     healthCheckPath: /api/health
     envVars:

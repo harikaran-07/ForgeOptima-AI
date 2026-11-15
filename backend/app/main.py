@@ -86,6 +86,7 @@ async def lifespan(_app: FastAPI):
                     from datetime import datetime, timezone
                     df = pd.read_csv(heats_csv)
                     furnace = session.scalar(select(Furnace).limit(1))
+                    records = []
                     for _, row in df.iterrows():
                         st = datetime.fromisoformat(str(row["heat_started_at"]))
                         if st.tzinfo is None:
@@ -97,7 +98,7 @@ async def lifespan(_app: FastAPI):
                         )
                         if cp and cp.tzinfo is None:
                             cp = cp.replace(tzinfo=timezone.utc)
-                        session.add(
+                        records.append(
                             HeatRecord(
                                 heat_id=str(row["heat_id"]),
                                 furnace_id=furnace.id if furnace else 1,
@@ -119,6 +120,7 @@ async def lifespan(_app: FastAPI):
                                 heat_completed_at=cp,
                             )
                         )
+                    session.add_all(records)
                     session.commit()
                     count = session.scalar(select(func.count(HeatRecord.id))) or 0
                     log.info("Auto-populated %s heats into database.", count)
