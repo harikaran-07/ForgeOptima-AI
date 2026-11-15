@@ -137,13 +137,13 @@ export default function ShakthiAI() {
       <PageHeader
         eyebrow="Module 09"
         title="SHAKTHI AI"
-        description="Your Intelligent Industrial Furnace Assistant. Context-aware answers grounded in live plant data, model predictions, history and anomalies — served by a local Qwen 2.5 3B model through the backend."
+        description="Your Intelligent Industrial Furnace Assistant. Context-aware answers grounded in live plant data, model predictions, history and anomalies — powered by online cloud intelligence."
       >
         <Chip tone={online ? "violet" : "crit"}>
           <span className={clsx("h-1.5 w-1.5 rounded-full", online ? "animate-pulseSoft bg-violet" : "bg-crit")} />
-          {online ? "Ollama connected" : "Ollama offline"}
+          {online ? (status.data?.model?.includes("Cloud") ? "Cloud AI Online" : "SHAKTHI AI Online") : "AI Offline"}
         </Chip>
-        <Chip tone="neutral">{status.data?.model ?? "qwen2.5:3b"}</Chip>
+        <Chip tone="neutral">{status.data?.model ?? "SHAKTHI Cloud Engine"}</Chip>
         <button className="btn-ghost !py-1.5 !text-[12px]" onClick={() => status.reload()}>
           <RefreshCw className="h-3.5 w-3.5" /> Recheck
         </button>

@@ -1,18 +1,18 @@
 {
-  "version": "20261115.1008",
-  "trained_at": "2026-11-15T10:08:10.081352+00:00",
-  "dataset_size": 1182,
+  "version": "20261115.1023",
+  "trained_at": "2026-11-15T10:23:16.770009+00:00",
+  "dataset_size": 1185,
   "models": {
     "melting_time": {
       "algorithm": "RandomForestRegressor",
       "target": "melting_time_min",
       "metrics": {
-        "mae": 2.785,
-        "rmse": 3.5768,
-        "r2": 0.9161,
-        "adjusted_r2": 0.9132,
-        "mape": 4.46,
-        "residual_std": 3.5802,
+        "mae": 2.9447,
+        "rmse": 4.07,
+        "r2": 0.9044,
+        "adjusted_r2": 0.901,
+        "mape": 4.63,
+        "residual_std": 4.0769,
         "test_samples": 237
       },
       "features": [
@@ -29,32 +29,32 @@
         {
           "feature": "energy_per_kg_nominal",
           "label": "Nominal specific energy (kWh/kg)",
-          "importance": 0.3701
+          "importance": 0.3664
         },
         {
           "feature": "power_kw",
           "label": "Power (kW)",
-          "importance": 0.3013
+          "importance": 0.3054
         },
         {
           "feature": "charge_weight_kg",
           "label": "Charge weight (kg)",
-          "importance": 0.2662
+          "importance": 0.2595
         },
         {
           "feature": "initial_temp_c",
           "label": "Initial temperature (\u00b0C)",
-          "importance": 0.0167
+          "importance": 0.0195
         },
         {
           "feature": "ambient_temp_c",
           "label": "Ambient temperature (\u00b0C)",
-          "importance": 0.0152
+          "importance": 0.0179
         },
         {
           "feature": "target_temp_c",
           "label": "Target temperature (\u00b0C)",
-          "importance": 0.0143
+          "importance": 0.0155
         }
       ]
     },
@@ -62,12 +62,12 @@
       "algorithm": "XGBRegressor",
       "target": "energy_kwh",
       "metrics": {
-        "mae": 41.7317,
-        "rmse": 53.2617,
-        "r2": 0.9906,
-        "adjusted_r2": 0.9901,
-        "mape": 2.41,
-        "residual_std": 53.238,
+        "mae": 37.749,
+        "rmse": 47.7673,
+        "r2": 0.991,
+        "adjusted_r2": 0.9905,
+        "mape": 2.16,
+        "residual_std": 47.719,
         "test_samples": 237
       },
       "features": [
@@ -87,32 +87,32 @@
         {
           "feature": "charge_weight_kg",
           "label": "Charge weight (kg)",
-          "importance": 0.6028
+          "importance": 0.5908
         },
         {
           "feature": "current_a",
           "label": "Current (A)",
-          "importance": 0.1084
+          "importance": 0.1137
         },
         {
           "feature": "energy_per_kg_nominal",
           "label": "Nominal specific energy (kWh/kg)",
-          "importance": 0.0991
+          "importance": 0.1
         },
         {
           "feature": "grade_code",
           "label": "Metal grade",
-          "importance": 0.0728
-        },
-        {
-          "feature": "melting_time_min",
-          "label": "Melting duration (min)",
-          "importance": 0.0541
+          "importance": 0.0703
         },
         {
           "feature": "power_kw",
           "label": "Power (kW)",
-          "importance": 0.0445
+          "importance": 0.0536
+        },
+        {
+          "feature": "melting_time_min",
+          "label": "Melting duration (min)",
+          "importance": 0.0515
         }
       ]
     },
@@ -120,12 +120,12 @@
       "algorithm": "RandomForestRegressor",
       "target": "remaining_min",
       "metrics": {
-        "mae": 3.5978,
-        "rmse": 5.0551,
-        "r2": 0.9352,
-        "adjusted_r2": 0.9314,
-        "mape": 11.12,
-        "residual_std": 5.0691,
+        "mae": 3.2464,
+        "rmse": 4.5266,
+        "r2": 0.9362,
+        "adjusted_r2": 0.9324,
+        "mape": 10.98,
+        "residual_std": 4.5133,
         "test_samples": 180
       },
       "features": [
@@ -144,32 +144,32 @@
         {
           "feature": "current_temperature_c",
           "label": "Current temperature (\u00b0C)",
-          "importance": 0.5567
-        },
-        {
-          "feature": "elapsed_min",
-          "label": "Elapsed time (min)",
-          "importance": 0.21
-        },
-        {
-          "feature": "temp_span_c",
-          "label": "Temperature span (\u00b0C)",
-          "importance": 0.0863
+          "importance": 0.7188
         },
         {
           "feature": "target_temp_c",
           "label": "Target temperature (\u00b0C)",
-          "importance": 0.0831
+          "importance": 0.0926
         },
         {
-          "feature": "power_kw",
-          "label": "Power (kW)",
-          "importance": 0.0193
+          "feature": "elapsed_min",
+          "label": "Elapsed time (min)",
+          "importance": 0.0543
+        },
+        {
+          "feature": "temp_span_c",
+          "label": "Temperature span (\u00b0C)",
+          "importance": 0.0521
         },
         {
           "feature": "grade_code",
           "label": "Metal grade",
-          "importance": 0.0173
+          "importance": 0.0214
+        },
+        {
+          "feature": "power_kw",
+          "label": "Power (kW)",
+          "importance": 0.0179
         }
       ]
     },

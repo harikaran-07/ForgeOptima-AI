@@ -101,7 +101,7 @@ async def chat(payload: ChatRequest, db: Session = Depends(get_db)):
         chunks: list[str] = []
         try:
             yield f"data: {json.dumps({'type': 'start', 'conversation_id': conversation_id})}\n\n"
-            async for delta in service.stream_chat(messages):
+            async for delta in service.stream_chat(messages, context=context):
                 chunks.append(delta)
                 yield f"data: {json.dumps({'type': 'delta', 'text': delta})}\n\n"
             answer = "".join(chunks).strip()
