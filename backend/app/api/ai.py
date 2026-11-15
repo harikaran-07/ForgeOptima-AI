@@ -124,6 +124,7 @@ async def chat(
     response: Response,
     db: Session = Depends(get_db),
     header_session_id: Optional[str] = Header(None, alias="X-Session-ID"),
+    x_gemini_api_key: Optional[str] = Header(None, alias="X-Gemini-API-Key"),
 ):
     """Stream a grounded furnace answer.
 
@@ -134,6 +135,7 @@ async def chat(
     """
     raw_session = payload.session_id or header_session_id
     session_id = conv_mgr.resolve_session_id(raw_session)
+    client_api_key = payload.api_key or x_gemini_api_key
 
     # Attach session id to response header for client persistence
     response.headers["X-Session-ID"] = session_id
@@ -144,6 +146,7 @@ async def chat(
             session_id=session_id,
             message=payload.message,
             conversation_id=payload.conversation_id,
+            api_key=client_api_key,
         ),
         media_type="text/event-stream",
         headers={

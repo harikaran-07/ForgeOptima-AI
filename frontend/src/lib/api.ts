@@ -92,13 +92,17 @@ export function downloadBlob(blob: Blob, filename: string) {
   setTimeout(() => URL.revokeObjectURL(url), 1500);
 }
 
-/** Streams an SSE chat response from SHAKTHI AI with seamless cloud fallback. */
+/** Streams an SSE chat response from SHAKTHI AI powered by Google Gemini API. */
 export async function streamChat(
   message: string,
   conversationId: number | null,
-  onEvent: (event: { type: string; text?: string; conversation_id?: number; message?: string }) => void,
-  signal?: AbortSignal
+  onEvent: (event: { type: string; text?: string; conversation_id?: number; message?: string; model?: string; provider?: string }) => void,
+  signal?: AbortSignal,
+  customApiKey?: string
 ) {
+  const storedKey = customApiKey || (typeof window !== "undefined" ? localStorage.getItem("forgeoptima_gemini_api_key") || "" : "");
+
+  // 1. First attempt: FastAPI backend /api/ai/chat
   let res: Response | null = null;
   try {
     const fetchPromise = fetch(`${BASE}/api/ai/chat`, {
@@ -106,53 +110,118 @@ export async function streamChat(
       headers: {
         "Content-Type": "application/json",
         "X-Session-ID": getSessionId(),
+        ...(storedKey ? { "X-Gemini-API-Key": storedKey } : {}),
       },
-      body: JSON.stringify({ message, conversation_id: conversationId, session_id: getSessionId() }),
+      body: JSON.stringify({
+        message,
+        conversation_id: conversationId,
+        session_id: getSessionId(),
+        api_key: storedKey || undefined,
+      }),
       signal,
     });
-    // Allow up to 25s for Render free-tier instance wake-up / provider completion before fallback
+    // Allow up to 35s for backend response
     const timeoutPromise = new Promise<never>((_, reject) =>
-      setTimeout(() => reject(new Error("Timeout")), 25000)
+      setTimeout(() => reject(new Error("Timeout")), 35000)
     );
     res = await Promise.race([fetchPromise, timeoutPromise]);
   } catch {
     res = null;
   }
 
-  if (!res || !res.ok || !res.body) {
-    // Built-in Online Cloud AI reasoning engine fallback
-    const { generateClientGroundedResponse } = await import("./aiReasoning");
-    const reply = generateClientGroundedResponse(message);
-    const words = reply.split(" ");
-    const convId = conversationId || Date.now();
-    onEvent({ type: "start", conversation_id: convId });
-    for (let i = 0; i < words.length; i += 3) {
-      if (signal?.aborted) return;
-      const chunk = words.slice(i, i + 3).join(" ") + (i + 3 < words.length ? " " : "");
-      onEvent({ type: "delta", text: chunk });
-      await new Promise((r) => setTimeout(r, 25));
+  // 2. If FastAPI backend answered, stream its SSE chunks
+  if (res && res.ok && res.body) {
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = "";
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      const frames = buffer.split("\n\n");
+      buffer = frames.pop() ?? "";
+      for (const frame of frames) {
+        const line = frame.split("\n").find((l) => l.startsWith("data:"));
+        if (!line) continue;
+        try {
+          onEvent(JSON.parse(line.slice(5).trim()));
+        } catch {
+          /* ignore */
+        }
+      }
     }
-    onEvent({ type: "done" });
     return;
   }
 
-  const reader = res.body.getReader();
-  const decoder = new TextDecoder();
-  let buffer = "";
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    buffer += decoder.decode(value, { stream: true });
-    const frames = buffer.split("\n\n");
-    buffer = frames.pop() ?? "";
-    for (const frame of frames) {
-      const line = frame.split("\n").find((l) => l.startsWith("data:"));
-      if (!line) continue;
-      try {
-        onEvent(JSON.parse(line.slice(5).trim()));
-      } catch {
-        /* ignore malformed frame */
+  // 3. Direct Gemini Fallback: If backend is asleep/deploying on Render AND user has a Gemini key:
+  if (storedKey) {
+    try {
+      const convId = conversationId || Date.now();
+      onEvent({ type: "start", conversation_id: convId, model: "gemini-2.0-flash", provider: "gemini" });
+      const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:streamGenerateContent?alt=sse&key=${storedKey}`;
+      const geminiRes = await fetch(geminiUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          contents: [{ role: "user", parts: [{ text: message }] }],
+          systemInstruction: {
+            parts: [{
+              text: "You are SHAKTHI AI, an advanced industrial furnace, metallurgy, and energy optimization generative AI copilot for ForgeOptima AI. Provide expert, comprehensive, articulate answers formatted in clean Markdown without robotic bracket tags."
+            }]
+          },
+          generationConfig: { temperature: 0.4, maxOutputTokens: 1200 },
+        }),
+        signal,
+      });
+
+      if (!geminiRes.ok) {
+        const errJson = await geminiRes.json().catch(() => ({}));
+        const errMsg = errJson?.error?.message || `HTTP ${geminiRes.status}`;
+        onEvent({ type: "delta", text: `⚠️ **Google Gemini API Error:**\n\n${errMsg}\n\nPlease check that your Gemini API key is valid at [Google AI Studio](https://aistudio.google.com/app/apikey).` });
+        onEvent({ type: "done" });
+        return;
       }
+
+      if (geminiRes.body) {
+        const reader = geminiRes.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = "";
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          buffer += decoder.decode(value, { stream: true });
+          const frames = buffer.split("\n\n");
+          buffer = frames.pop() ?? "";
+          for (const frame of frames) {
+            const line = frame.split("\n").find((l) => l.startsWith("data:"));
+            if (!line) continue;
+            try {
+              const chunk = JSON.parse(line.slice(5).trim());
+              const text = chunk?.candidates?.[0]?.content?.parts?.[0]?.text;
+              if (text) onEvent({ type: "delta", text });
+            } catch {
+              /* ignore */
+            }
+          }
+        }
+        onEvent({ type: "done" });
+        return;
+      }
+    } catch {
+      /* fall to instruction below */
     }
   }
+
+  // 4. Guidance when backend is asleep and no key is configured
+  const convId = conversationId || Date.now();
+  onEvent({ type: "start", conversation_id: convId });
+  onEvent({
+    type: "delta",
+    text: "⚠️ **Google Gemini API Key Required for Live Generative Answers**\n\n" +
+          "To enable real-time generative responses from Google Gemini:\n\n" +
+          "1. Click the **'Set Gemini API Key'** button in the toolbar above and paste your Gemini API key, OR\n" +
+          "2. Add `GEMINI_API_KEY` to your environment variables on Render (or local `.env`).\n\n" +
+          "*(You can get a 100% free Gemini API key in 30 seconds at [Google AI Studio](https://aistudio.google.com/app/apikey))*"
+  });
+  onEvent({ type: "done" });
 }

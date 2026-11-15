@@ -356,6 +356,7 @@ class ChatRequest(BaseModel):
     message: str = Field(..., min_length=1, max_length=4000)
     conversation_id: Optional[int] = None
     session_id: Optional[str] = None
+    api_key: Optional[str] = None
 
 
 class AIStatus(BaseModel):

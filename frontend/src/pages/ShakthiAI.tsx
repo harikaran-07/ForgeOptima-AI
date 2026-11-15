@@ -10,6 +10,7 @@ import {
   Copy,
   Database,
   Flame,
+  Key,
   Layers,
   MessageSquarePlus,
   RefreshCw,
@@ -78,6 +79,11 @@ export default function ShakthiAI() {
   const [contextOpen, setContextOpen] = useState(false);
   const [usageOpen, setUsageOpen] = useState(false);
   const [clearConfirm, setClearConfirm] = useState(false);
+  const [geminiKey, setGeminiKey] = useState<string>(
+    () => (typeof window !== "undefined" ? localStorage.getItem("forgeoptima_gemini_api_key") || "" : "")
+  );
+  const [keyModalOpen, setKeyModalOpen] = useState(false);
+  const [tempKey, setTempKey] = useState("");
 
   const abortRef = useRef<AbortController | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -148,7 +154,8 @@ export default function ShakthiAI() {
             });
           }
         },
-        controller.signal
+        controller.signal,
+        geminiKey
       );
     } catch (err) {
       if (!controller.signal.aborted) {
@@ -285,6 +292,20 @@ export default function ShakthiAI() {
             }
             action={
               <div className="flex items-center gap-2">
+                <button
+                  className={clsx(
+                    "btn-ghost !py-1 !text-[11px] flex items-center gap-1.5",
+                    geminiKey ? "border-good/40 text-good hover:bg-good/10" : "border-violet/40 text-violet hover:bg-violet/10"
+                  )}
+                  onClick={() => {
+                    setTempKey(geminiKey);
+                    setKeyModalOpen(true);
+                  }}
+                  title="Configure your Google Gemini API Key"
+                >
+                  <Key className="h-3 w-3" />
+                  <span>{geminiKey ? "Gemini Key: Active" : "Set Gemini API Key"}</span>
+                </button>
                 {messages.length > 0 && (
                   <button
                     className="btn-ghost !py-1 !text-[11px] text-ink-400 hover:text-crit"
@@ -703,6 +724,89 @@ export default function ShakthiAI() {
           </div>
         </div>
       </div>
+
+      {/* Gemini API Key Configuration Modal */}
+      {keyModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm animate-fadeIn">
+          <div className="w-full max-w-md rounded-2xl border border-base-700 bg-base-900 p-5 shadow-2xl animate-scaleUp">
+            <div className="flex items-center gap-2.5 mb-2">
+              <div className="grid h-8 w-8 place-items-center rounded-lg border border-violet/40 bg-violet/15 text-violet">
+                <Key className="h-4 w-4" />
+              </div>
+              <div>
+                <h4 className="text-[14px] font-semibold text-white">Google Gemini API Key</h4>
+                <p className="text-[11px] text-ink-400">Power SHAKTHI AI with direct generative intelligence</p>
+              </div>
+            </div>
+
+            <p className="mt-2 text-[11.5px] leading-relaxed text-ink-300">
+              Enter your Google Gemini API key below. It is stored safely in your browser and used to stream real-time generative responses directly from Google Gemini (<code className="text-violet font-mono">gemini-2.0-flash</code>).
+            </p>
+
+            <div className="mt-3">
+              <input
+                type="password"
+                value={tempKey}
+                onChange={(e) => setTempKey(e.target.value)}
+                placeholder="AIzaSy..."
+                className="w-full rounded-lg border border-base-700 bg-base-950 px-3 py-2 text-[12px] font-mono text-ink-100 placeholder:text-ink-600 focus:border-violet focus:outline-none"
+              />
+              <p className="mt-1.5 text-[10.5px] text-ink-500">
+                Need a key? Get a free API key at{" "}
+                <a
+                  href="https://aistudio.google.com/app/apikey"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-violet underline hover:text-white"
+                >
+                  Google AI Studio
+                </a>.
+              </p>
+            </div>
+
+            <div className="mt-4 flex items-center justify-end gap-2">
+              {geminiKey && (
+                <button
+                  type="button"
+                  className="btn-ghost !text-[11px] text-crit hover:bg-crit/10 mr-auto"
+                  onClick={() => {
+                    localStorage.removeItem("forgeoptima_gemini_api_key");
+                    setGeminiKey("");
+                    setTempKey("");
+                    setKeyModalOpen(false);
+                  }}
+                >
+                  Remove Key
+                </button>
+              )}
+              <button
+                type="button"
+                className="btn-ghost !text-[11px]"
+                onClick={() => setKeyModalOpen(false)}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="btn-solid !py-1.5 !text-[11.5px] bg-violet hover:bg-violet/90 text-white"
+                onClick={() => {
+                  const trimmed = tempKey.trim();
+                  if (trimmed) {
+                    localStorage.setItem("forgeoptima_gemini_api_key", trimmed);
+                    setGeminiKey(trimmed);
+                  } else {
+                    localStorage.removeItem("forgeoptima_gemini_api_key");
+                    setGeminiKey("");
+                  }
+                  setKeyModalOpen(false);
+                }}
+              >
+                Save Key
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

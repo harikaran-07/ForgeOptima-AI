@@ -50,6 +50,7 @@ async def chat_stream(
     session_id: str,
     message: str,
     conversation_id: Optional[int] = None,
+    api_key: Optional[str] = None,
 ) -> AsyncIterator[str]:
     """Executes a multi-user, rate-limited, grounded streaming conversation."""
     clean_session = resolve_session_id(session_id)
@@ -77,12 +78,12 @@ async def chat_stream(
     messages.append({"role": "user", "content": message})
 
     # 6. Stream SSE frames
-    provider, model, _, _ = detect_provider()
+    provider, model, resolved_key, _ = detect_provider(override_key=api_key)
     yield f"data: {json.dumps({'type': 'start', 'conversation_id': conversation_id, 'model': model, 'provider': provider, 'session_id': clean_session})}\n\n"
 
     accumulated = ""
     try:
-        async for token in stream_chat_provider(messages, context, session_id=clean_session):
+        async for token in stream_chat_provider(messages, context, session_id=clean_session, override_key=api_key):
             accumulated += token
             yield f"data: {json.dumps({'type': 'delta', 'text': token})}\n\n"
     except Exception as exc:
