@@ -129,15 +129,7 @@ def _init_reference_data_background():
     if registry.is_ready():
         log.info("ML models loaded (version %s)", registry.version)
     else:
-        log.info("Attempting background model training...")
-        try:
-            from .ml.training import train_all
-            train_all()
-            registry.reload()
-            if registry.is_ready():
-                log.info("ML models auto-trained and loaded (version %s)", registry.version)
-        except Exception as train_exc:
-            log.warning("Could not auto-train models: %s", train_exc)
+        log.warning("ML models not loaded or missing artifacts in %s", registry.artifact_dir)
 
 
 def _init_database_and_models_background():
@@ -264,3 +256,11 @@ def health():
         "model_version": registry.version,
         "database": "sqlite" if settings.database_url.startswith("sqlite") else "postgresql",
     }
+
+
+if __name__ == "__main__":
+    import os
+    import uvicorn
+    port = int(os.getenv("PORT", 8000))
+    uvicorn.run("app.main:app", host="0.0.0.0", port=port)
+
