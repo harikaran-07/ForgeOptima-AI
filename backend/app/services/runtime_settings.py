@@ -18,8 +18,8 @@ _PATH = Path(settings.dataset_path).parent / "runtime_settings.json"
 _DEFAULTS: dict[str, Any] = {
     "emission_factor_kg_per_kwh": settings.emission_factor_kg_per_kwh,
     "anomaly_threshold": settings.anomaly_threshold,
-    "ollama_base_url": settings.ollama_base_url,
-    "ollama_model": settings.ollama_model,
+    "ai_provider": settings.ai_provider,
+    "ai_model": settings.ai_model,
     "last_retrain_at": None,
 }
 

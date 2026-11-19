@@ -15,5 +15,14 @@ export default defineConfig({
   build: {
     outDir: "dist",
     sourcemap: false,
+    chunkSizeWarningLimit: 4000,
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          webllm: ["@mlc-ai/web-llm"],
+          vendor: ["react", "react-dom", "react-router-dom", "recharts", "framer-motion"],
+        },
+      },
+    },
   },
 });

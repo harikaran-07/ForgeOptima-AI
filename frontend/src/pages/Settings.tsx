@@ -1,17 +1,17 @@
 import { useEffect, useState } from "react";
-import { AlertTriangle, Check, Database, Flame, RefreshCw, Server, Sparkles } from "lucide-react";
+import { AlertTriangle, Check, Database, Flame, Server, Sparkles } from "lucide-react";
 import { useFetch } from "../hooks/useFetch";
 import { api } from "../lib/api";
 import { AIStatus } from "../lib/types";
 import { dt, nf } from "../lib/format";
 import { Chip, ErrorBox, Field, Notice, PageHeader, Panel, Spinner } from "../components/ui";
+import { ModelManager } from "../components/ModelManager";
+import { isEngineReady, isQwenModelCached } from "../lib/webllmEngine";
 
 interface SettingsPayload {
   runtime: {
     emission_factor_kg_per_kwh: number;
     anomaly_threshold: number;
-    ollama_base_url: string;
-    ollama_model: string;
     last_retrain_at: string | null;
   };
   environment: {
@@ -32,7 +32,7 @@ interface SettingsPayload {
   };
   user: { name: string; role: string; email: string | null };
   models: { ready: boolean; version: string };
-  ai: { ollama_base_url: string; ollama_model: string; note: string };
+  ai: { provider: string; model: string; note: string };
   disclaimer: string;
 }
 
@@ -44,22 +44,24 @@ interface RetrainResult {
 export default function Settings() {
   const settings = useFetch<SettingsPayload>("/settings");
   const ai = useFetch<AIStatus>("/ai/status");
-  const [form, setForm] = useState({ emission_factor_kg_per_kwh: 0.71, anomaly_threshold: 0, ollama_base_url: "", ollama_model: "" });
+  const [form, setForm] = useState({ emission_factor_kg_per_kwh: 0.71, anomaly_threshold: 0 });
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [retrain, setRetrain] = useState<RetrainResult | null>(null);
   const [retraining, setRetraining] = useState(false);
+  const [isLocalLoaded, setIsLocalLoaded] = useState(false);
+  const [isLocalCached, setIsLocalCached] = useState(false);
 
   useEffect(() => {
     if (settings.data) {
       setForm({
         emission_factor_kg_per_kwh: settings.data.runtime.emission_factor_kg_per_kwh,
         anomaly_threshold: settings.data.runtime.anomaly_threshold,
-        ollama_base_url: settings.data.runtime.ollama_base_url,
-        ollama_model: settings.data.runtime.ollama_model,
       });
     }
+    setIsLocalLoaded(isEngineReady());
+    void isQwenModelCached().then(setIsLocalCached);
   }, [settings.data]);
 
   const save = async () => {
@@ -68,7 +70,7 @@ export default function Settings() {
     setMessage(null);
     try {
       await api.put("/settings", form);
-      setMessage("Settings saved. Emission factor and AI endpoint are applied to subsequent requests.");
+      setMessage("Settings saved. Emission factor and thresholds are updated.");
       await settings.reload();
       await ai.reload();
     } catch (err) {
@@ -103,22 +105,33 @@ export default function Settings() {
     <div className="space-y-5">
       <PageHeader
         eyebrow="Platform configuration"
-        title="Settings"
-        description="Operator-configurable analytics parameters, AI service endpoint and model registry controls. Changes are persisted server-side."
+        title="Settings & AI Manager"
+        description="Operator-configurable analytics parameters, Browser Local AI (WebLLM Qwen2.5 3B) management, WebGPU diagnostics, and model registry controls."
       >
         <Chip tone={s.models.ready ? "good" : "crit"}>Models {s.models.ready ? s.models.version : "not loaded"}</Chip>
+        <Chip tone={isLocalLoaded ? "good" : isLocalCached ? "cyan" : "warn"}>
+          Qwen2.5 3B {isLocalLoaded ? "Loaded in GPU" : isLocalCached ? "Cached" : "Ready to Download"}
+        </Chip>
         <Chip tone="neutral">{s.environment.environment}</Chip>
       </PageHeader>
 
       {message && <Notice tone="good">{message}</Notice>}
       {error && <ErrorBox message={error} />}
 
+      {/* Full Browser Local AI Model Manager */}
+      <ModelManager
+        onModelReady={() => {
+          setIsLocalLoaded(true);
+          setIsLocalCached(true);
+        }}
+      />
+
       <div className="grid gap-4 xl:grid-cols-3">
         <Panel title="Analytics parameters" subtitle="Applied across energy and anomaly modules">
           <div className="space-y-3">
             <Field
               label="Grid emission factor (kg CO₂ / kWh)"
-              hint="Used for all carbon estimates. National/regional grid factors vary; update to match your supply contract."
+              hint="Used for all carbon estimates. Regional grid factors vary; update to match your contract."
             >
               <input
                 type="number"
@@ -130,7 +143,7 @@ export default function Settings() {
                 onChange={(e) => setForm({ ...form, emission_factor_kg_per_kwh: Number(e.target.value) })}
               />
             </Field>
-            <Field label="Anomaly threshold (IsolationForest decision score)" hint="Lower values flag more records. Default 0.">
+            <Field label="Anomaly threshold (IsolationForest score)" hint="Lower values flag more records. Default 0.">
               <input
                 type="number"
                 step={0.01}
@@ -147,31 +160,30 @@ export default function Settings() {
           </div>
         </Panel>
 
-        <Panel title="SHAKTHI AI service" subtitle="Ollama inference endpoint (server-side only)">
-          <div className="space-y-3">
-            <Field label="Ollama base URL" hint="Development: http://localhost:11434. Production: a secured inference host, never a laptop.">
-              <input
-                className="input mono !text-[11.5px]"
-                value={form.ollama_base_url}
-                onChange={(e) => setForm({ ...form, ollama_base_url: e.target.value })}
-              />
-            </Field>
-            <Field label="Model identifier">
-              <input
-                className="input mono"
-                value={form.ollama_model}
-                onChange={(e) => setForm({ ...form, ollama_model: e.target.value })}
-              />
-            </Field>
-            <div className="flex items-center gap-2">
-              <button className="btn-ghost flex-1 !py-1.5 !text-[11.5px]" onClick={() => ai.reload()}>
-                <RefreshCw className="h-3 w-3" /> Test connection
-              </button>
-              <Chip tone="good">online</Chip>
+        <Panel title="Inference Architecture" subtitle="Browser Local AI vs Cloud APIs">
+          <div className="space-y-3 text-[11.5px]">
+            <div className="flex items-center justify-between border-b border-base-750/70 pb-2">
+              <span className="text-ink-400">Primary Runtime</span>
+              <span className="mono text-white font-medium">@mlc-ai/web-llm (WebGPU)</span>
             </div>
-            <p className="text-[10.5px] leading-relaxed text-ink-500">{ai.data?.detail}</p>
-            <p className="rounded-lg border border-base-700 bg-base-900/50 px-2.5 py-2 text-[10px] leading-relaxed text-ink-500">
-              {s.ai.note}
+            <div className="flex items-center justify-between border-b border-base-750/70 pb-2">
+              <span className="text-ink-400">Model Name</span>
+              <span className="mono text-electric font-medium">Qwen2.5 3B Instruct</span>
+            </div>
+            <div className="flex items-center justify-between border-b border-base-750/70 pb-2">
+              <span className="text-ink-400">External API Key</span>
+              <span className="mono text-good font-medium">None (Zero Cost)</span>
+            </div>
+            <div className="flex items-center justify-between border-b border-base-750/70 pb-2">
+              <span className="text-ink-400">Ollama Dependency</span>
+              <span className="mono text-good font-medium">None (Browser native)</span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-ink-400">Privacy Status</span>
+              <span className="mono text-good font-medium">100% On-Device</span>
+            </div>
+            <p className="rounded-lg border border-base-700 bg-base-900/50 p-2.5 text-[10.5px] leading-relaxed text-ink-400">
+              User prompts never leave your browser. Inference runs on your device's GPU through WebGPU compute shaders.
             </p>
           </div>
         </Panel>

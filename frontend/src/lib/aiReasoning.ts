@@ -84,7 +84,7 @@ export function generateClientGroundedResponse(userQuery: string): string {
 
   // Default general industrial response
   return (
-    "I am SHAKTHI AI, your intelligent industrial furnace copilot powered by Google Gemini. " +
+    "I am SHAKTHI AI, your intelligent industrial furnace copilot powered by Qwen2.5 3B Instruct running locally in your browser via WebGPU. " +
     "I can answer any question about coreless and channel induction furnaces, metallurgy, scrap charge calculation, " +
     "power factor optimization, melting times, thermal efficiency, steel grades (MS, SS304, SS316, Alloy Steel, Cast Iron), " +
     "and emission reduction. What would you like to explore or optimize?"

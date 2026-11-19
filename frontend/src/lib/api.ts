@@ -92,7 +92,7 @@ export function downloadBlob(blob: Blob, filename: string) {
   setTimeout(() => URL.revokeObjectURL(url), 1500);
 }
 
-/** Streams an SSE chat response from SHAKTHI AI powered by Google Gemini API. */
+/** Streams an SSE chat response from SHAKTHI AI backend fallback service. */
 export async function streamChat(
   message: string,
   conversationId: number | null,

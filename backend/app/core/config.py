@@ -46,18 +46,11 @@ class Settings(BaseSettings):
         "https://forge-optima-ai.vercel.app",
     ]
 
-    # --- AI Integration (Google Gemini Primary) ----------------------------
-    ai_provider: str = "gemini"                # gemini | groq | openai | openrouter | cloud_engine
-    gemini_api_key: Optional[str] = None       # Primary Google Gemini API key
-    google_api_key: Optional[str] = None       # Alias Google Gemini API key
-    ai_api_key: Optional[str] = None           # Fallback generic API key
-    ai_base_url: Optional[str] = None          # Custom endpoint URL
-    ai_model: str = "gemini-2.0-flash"         # Google Gemini 2.0 Flash (Free Tier)
+    # --- AI Integration (Qwen2.5 3B Browser Local WebLLM Architecture) -----
+    ai_provider: str = "webllm"                # webllm (Browser Local AI) | local_engine
+    ai_model: str = "Qwen2.5-3B-Instruct"      # WebLLM WebGPU local browser model
     ai_timeout_seconds: float = 30.0
-    ai_rate_limit_per_minute: int = 20         # Per-session rate limit
-    ollama_base_url: str = "http://localhost:11434"
-    ollama_model: str = "qwen2.5:3b"
-    ollama_timeout_seconds: float = 60.0
+    ai_rate_limit_per_minute: int = 60         # Per-session rate limit
     ai_context_heat_limit: int = 12
     ai_max_message_chars: int = 4000
 

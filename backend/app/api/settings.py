@@ -85,11 +85,11 @@ def get_settings(db: Session = Depends(get_db)):
         },
         "models": {"ready": registry.is_ready(), "version": registry.version},
         "ai": {
-            "ollama_base_url": rt["ollama_base_url"],
-            "ollama_model": rt["ollama_model"],
+            "provider": "webllm",
+            "model": "Qwen2.5-3B-Instruct",
             "note": (
-                "The backend calls Ollama server-side. The browser never receives the inference URL. "
-                "In production point this at a secured inference host, not a laptop."
+                "Browser Local AI executed directly on user WebGPU via @mlc-ai/web-llm. "
+                "Zero external API keys, zero token fees, 100% on-device privacy."
             ),
         },
         "disclaimer": (

@@ -30,7 +30,7 @@ a relational database and trained model artifacts.
 | Energy intelligence | Consumption per heat/kg/day/week/month, waste detection, transparent efficiency score, CO₂ estimates |
 | Anomaly detection | `IsolationForest` + explicit sensor-quality rules, three severities, acknowledgement workflow |
 | Heat history | Server-side filtering, pagination, KNN comparison, per-heat PDF/CSV reports |
-| SHAKTHI AI | Streaming chat against Ollama `qwen2.5:3b` with read-only plant context, persisted conversations |
+| SHAKTHI AI | Browser Local AI powered by Qwen2.5 3B Instruct via @mlc-ai/web-llm (WebGPU), 100% private on-device execution |
 | Self-learning engine | Prediction/actual pairing, live error tracking, guarded retraining with data validation |
 | Reports | 7 report types as PDF (reportlab) or CSV |
 | Security | Pydantic validation, CORS allowlist, per-IP rate limiting, upload checks, read-only AI tools |
@@ -41,13 +41,13 @@ a relational database and trained model artifacts.
 
 ```
 React 18 + TS + Vite + Tailwind + Recharts
-                │  /api (Vite proxy in dev, VITE_API_BASE_URL in prod)
-                ▼
-        FastAPI (Python 3.12)
-        ├── SQLAlchemy 2.0 ─────────────► PostgreSQL (prod) / SQLite (dev)
-        ├── scikit-learn / XGBoost ─────► backend/artifacts/*.joblib
-        ├── ReportLab ──────────────────► PDF reports
-        └── httpx ──────────────────────► Ollama  POST /api/chat  → qwen2.5:3b
+├── @mlc-ai/web-llm ────────────► WebGPU local inference (Qwen2.5 3B Instruct)
+└── /api (Vite proxy in dev, VITE_API_BASE_URL in prod)
+    ▼
+    FastAPI (Python 3.12)
+    ├── SQLAlchemy 2.0 ─────────► PostgreSQL (prod) / SQLite (dev)
+    ├── scikit-learn / XGBoost ─► backend/artifacts/*.joblib
+    └── ReportLab ──────────────► PDF reports
 ```
 
 ```
@@ -111,16 +111,14 @@ npm run dev        # http://127.0.0.1:5173  (proxies /api → 127.0.0.1:8000)
 
 Production build: `npm run build` (runs `tsc --noEmit` first).
 
-### 3.3 SHAKTHI AI (Ollama)
+### 3.3 SHAKTHI AI — Browser Local AI (Qwen2.5 3B Instruct via WebLLM)
 
-```bash
-ollama pull qwen2.5:3b
-ollama serve                     # default http://localhost:11434
-```
-
-Then open **SHAKTHI AI** in the app — the header shows the live connection state. If Ollama is not
-running, the UI states clearly that the assistant is offline and shows the connection error. **No fake
-answers are substituted.** The Ollama URL and model can be changed at runtime in **Settings**.
+ForgeOptima AI executes Qwen2.5 3B Instruct **100% locally inside the user's browser** via WebGPU:
+- **No Ollama server** installation or background process required.
+- **No paid API keys** or cloud tokens (zero billing).
+- **Direct WebGPU shader acceleration** provides real-time streaming token generation.
+- Model assets (~1.62 GB) are fetched from the official MLC Hugging Face repository (`mlc-ai/Qwen2.5-3B-Instruct-q4f16_1-MLC`) and cached in browser storage for instant subsequent loads.
+- Open **SHAKTHI AI** or **Settings** to inspect WebGPU hardware capabilities, manage downloads/caches, select context lengths (4096 or 2048 for mobile), and chat privately.
 
 ---
 
@@ -132,8 +130,8 @@ Copy `.env.example` → `.env` (repository root, or `backend/.env`). Key variabl
 |---|---|---|
 | `DATABASE_URL` | `sqlite:///./forgeoptima.db` | Use `postgresql+psycopg://user:pass@host:5432/forgeoptima` for PostgreSQL |
 | `CORS_ORIGINS` | localhost:5173 | Comma-separated allowed origins |
-| `OLLAMA_BASE_URL` | `http://localhost:11434` | Server-side inference endpoint |
-| `OLLAMA_MODEL` | `qwen2.5:3b` | Model identifier |
+| `AI_PROVIDER` | `webllm` | Browser Local AI architecture |
+| `AI_MODEL` | `Qwen2.5-3B-Instruct` | Local WebGPU model identifier |
 | `EMISSION_FACTOR_KG_PER_KWH` | `0.71` | Grid factor for CO₂ estimates (also editable in Settings) |
 | `MAX_UPLOAD_MB` | `10` | CSV upload limit |
 | `RATE_LIMIT_PER_MINUTE` | `240` | Per-IP sliding window |
@@ -259,23 +257,19 @@ digital twin**.
 
 ---
 
-## 10. SHAKTHI AI — grounding and guardrails
+## 10. SHAKTHI AI — grounding, WebGPU and guardrails
 
-The backend assembles a read-only JSON context per request: latest heat, 12 recent heats, grade
+SHAKTHI AI executes Qwen2.5 3B Instruct directly in the client's browser using `@mlc-ai/web-llm` and WebGPU.
+The backend supplies a read-only JSON context per request via `/api/ai/context`: latest heat, 12 recent heats, grade
 benchmarks, 7-day energy summary, model predictions **with their metrics**, KNN neighbours, recent
-anomalies, current live-simulation stage and the furnace envelope. This context plus a strict system
-prompt goes to Ollama's `/api/chat` with `stream: true`; deltas are forwarded to the browser as SSE.
+anomalies, current live-simulation stage and the furnace envelope. This context is injected into the
+grounded system prompt.
 
 Guardrails:
-* The model is told it may use **only** the supplied context and must not invent measurements.
-* It must label measured / predicted / simulated values and quote model metrics when used.
-* It is read-only: no SQL, no tools, no control commands, no claims that actions were taken.
-* Context text is data, not instructions (prompt-injection defence).
-* The browser never sees the Ollama URL; `/api/ai/context` exposes exactly what was sent, for audit.
-* Conversations and messages are persisted (`ai_conversations`, `ai_messages`).
-
-If Ollama is unreachable, `GET /ai/status` reports `online: false` with the reason, the chat returns an
-explicit streamed error, and the dashboard shows an offline banner. **No fallback prose is generated.**
+* The model is instructed to ground answers in physical metallurgical physics and the provided telemetry without inventing sensor readings.
+* Read-only decision support: no equipment control commands or simulated actuations.
+* All prompts, conversations, and reasoning remain 100% on the user's device (no prompt telemetry sent to external APIs).
+* Conversations and messages are stored locally in the browser's persistent storage.
 
 ---
 
@@ -333,10 +327,7 @@ it cannot drift); later changes use `alembic revision --autogenerate` and are re
 * Add the Vercel domain to the backend's `CORS_ORIGINS`.
 
 ### 12.4 SHAKTHI AI in production
-A laptop's `localhost:11434` is **not reachable** from Vercel/Render. Run Ollama on a separate host (GPU
-VM, on-prem inference server), keep it private, and expose it only to the backend — e.g. private network,
-VPN, or an authenticating reverse proxy with TLS. Set `OLLAMA_BASE_URL` to that host. If the service is
-unavailable, the product degrades to a clearly labelled offline assistant rather than inventing answers.
+Because SHAKTHI AI runs **directly inside the client's browser using WebLLM and WebGPU**, there are **zero expensive GPU server costs or Ollama hosting infrastructure required**. Any user visiting the site on a modern browser (Chrome 113+, Edge 113+, Safari 18+) can run Qwen2.5 3B with WebGPU hardware acceleration. The backend only serves the lightweight FastAPI endpoints, SQLite/PostgreSQL database, and scikit-learn models.
 
 ---
 

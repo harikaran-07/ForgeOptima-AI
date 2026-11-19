@@ -432,8 +432,8 @@ class RetrainResponse(BaseModel):
 class SettingsUpdate(BaseModel):
     emission_factor_kg_per_kwh: Optional[float] = Field(None, ge=0.0, le=2.0)
     anomaly_threshold: Optional[float] = Field(None, ge=-1.0, le=1.0)
-    ollama_base_url: Optional[str] = None
-    ollama_model: Optional[str] = None
+    ai_provider: Optional[str] = None
+    ai_model: Optional[str] = None
 
 
 class HeatManualCreate(BaseModel):

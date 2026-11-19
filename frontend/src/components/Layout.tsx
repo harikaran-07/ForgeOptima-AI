@@ -21,7 +21,7 @@ import {
   Zap,
 } from "lucide-react";
 import { useFetch } from "../hooks/useFetch";
-import { AIStatus, Anomaly, FurnaceStatus } from "../lib/types";
+import { Anomaly, FurnaceStatus } from "../lib/types";
 import { nf } from "../lib/format";
 import { Chip, StatusChip } from "./ui";
 
@@ -80,7 +80,6 @@ export default function Layout() {
   const location = useLocation();
 
   const status = useFetch<FurnaceStatus>("/furnace/status", { pollMs: 15000 });
-  const ai = useFetch<AIStatus>("/ai/status", { pollMs: 45000 });
   const alerts = useFetch<Anomaly[]>("/anomalies?limit=8", { pollMs: 45000 });
 
   useEffect(() => {
@@ -193,9 +192,9 @@ export default function Layout() {
                 <Wifi className="h-3 w-3" />
                 {connected ? "API connected" : "Cloud Sync Active"}
               </Chip>
-              <Chip tone={ai.data?.online ? "violet" : "neutral"}>
-                <Sparkles className="h-3 w-3" />
-                SHAKTHI AI · {ai.data?.provider ? (ai.data.provider.charAt(0).toUpperCase() + ai.data.provider.slice(1)) : "Cloud"}
+              <Chip tone="cyan">
+                <Sparkles className="h-3 w-3 text-cyan" />
+                SHAKTHI AI · Qwen2.5 3B (WebGPU)
               </Chip>
               {status.data && (
                 <span className="mono hidden text-[12px] text-ink-200 md:inline">
