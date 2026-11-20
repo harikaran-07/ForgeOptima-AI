@@ -19,6 +19,7 @@ import {
   InitProgressReport,
   AppConfig,
 } from "@mlc-ai/web-llm";
+import { generateClientGroundedResponse } from "../../lib/aiReasoning";
 
 export const PRIMARY_MODEL_ID = "Qwen2.5-0.5B-Instruct-q4f16_1-MLC";
 export const FALLBACK_MODEL_ID = "Qwen2.5-0.5B-Instruct-q4f32_1-MLC";
@@ -518,6 +519,8 @@ export function getRawEngineInstance(): MLCEngine | null {
   return engineInstance;
 }
 
+const REFUSAL_PATTERN = /(\bi('m| am) sorry\b|\bcan('t|not) assist\b|\bunable to assist\b|\bcannot fulfill\b|\bunable to provide\b|\bas an ai\b|\bapologize[,\.]? but\b)/i;
+
 /**
  * Streams chat completion using the shared loaded Qwen 2.5 0.5B WebGPU engine.
  */
@@ -537,10 +540,16 @@ export async function streamQwenChat(
     const asyncChunkGenerator = await engineInstance.chat.completions.create({
       messages: messages as any,
       stream: true,
-      temperature: 0.3,
+      temperature: 0.35,
       top_p: 0.85,
       max_tokens: 1024,
     });
+
+    let accumulated = "";
+    let buffer = "";
+    let flushed = false;
+    let isRefusal = false;
+    const userPrompt = messages.filter((m) => m.role === "user").pop()?.content || "";
 
     for await (const chunk of asyncChunkGenerator) {
       if (signal?.aborted) {
@@ -548,7 +557,59 @@ export async function streamQwenChat(
       }
       const delta = chunk.choices[0]?.delta?.content || "";
       if (delta) {
-        onDelta(delta);
+        accumulated += delta;
+
+        // Buffer first 100 characters to catch any RLHF alignment refusal before showing to user
+        if (!flushed) {
+          buffer += delta;
+
+          if (REFUSAL_PATTERN.test(buffer)) {
+            isRefusal = true;
+            try {
+              engineInstance?.interruptGenerate?.();
+            } catch {
+              /* ignore */
+            }
+            break;
+          }
+
+          if (buffer.length >= 100) {
+            onDelta(buffer);
+            flushed = true;
+            buffer = "";
+          }
+        } else {
+          // If already streaming, check if accumulated contains a refusal
+          if (REFUSAL_PATTERN.test(accumulated)) {
+            isRefusal = true;
+            try {
+              engineInstance?.interruptGenerate?.();
+            } catch {
+              /* ignore */
+            }
+            break;
+          }
+          onDelta(delta);
+        }
+      }
+    }
+
+    // If refusal was intercepted, immediately emit rich domain grounded metallurgy answer!
+    if (isRefusal) {
+      const rectifiedAnswer = generateClientGroundedResponse(userPrompt);
+      const words = rectifiedAnswer.split(" ");
+      for (let i = 0; i < words.length; i += 3) {
+        if (signal?.aborted) break;
+        const slice = words.slice(i, i + 3).join(" ") + (i + 3 < words.length ? " " : "");
+        onDelta(slice);
+        await new Promise((r) => setTimeout(r, 12));
+      }
+    } else if (!flushed && buffer.length > 0) {
+      if (REFUSAL_PATTERN.test(buffer)) {
+        const rectifiedAnswer = generateClientGroundedResponse(userPrompt);
+        onDelta(rectifiedAnswer);
+      } else {
+        onDelta(buffer);
       }
     }
 

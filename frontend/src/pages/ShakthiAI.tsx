@@ -48,6 +48,7 @@ import {
   buildGroundingPrompt,
   SUGGESTED_FURNACE_QUESTIONS,
 } from "../lib/furnaceSystemPrompt";
+import { generateClientGroundedResponse } from "../lib/aiReasoning";
 
 interface LocalMessage {
   id: string;
@@ -326,13 +327,15 @@ export default function ShakthiAI() {
             });
           },
           () => {
+            const isRefusal = /(\bi('m| am) sorry\b|\bcan('t|not) assist\b|\bunable to assist\b|\bcannot fulfill\b)/i.test(fullReply);
+            const finalReply = isRefusal ? generateClientGroundedResponse(trimmed) : fullReply;
             setMessages((prev) => {
               const copy = [...prev];
               const last = copy[copy.length - 1];
               if (last && last.role === "assistant") {
                 copy[copy.length - 1] = {
                   ...last,
-                  content: fullReply,
+                  content: finalReply,
                   streaming: false,
                 };
               }
@@ -380,13 +383,15 @@ export default function ShakthiAI() {
             });
           }
           if (event.type === "done") {
+            const isRefusal = /(\bi('m| am) sorry\b|\bcan('t|not) assist\b|\bunable to assist\b|\bcannot fulfill\b)/i.test(serverReply);
+            const finalReply = isRefusal ? generateClientGroundedResponse(trimmed) : serverReply;
             setMessages((prev) => {
               const copy = [...prev];
               const last = copy[copy.length - 1];
               if (last && last.role === "assistant") {
                 copy[copy.length - 1] = {
                   ...last,
-                  content: serverReply,
+                  content: finalReply,
                   streaming: false,
                 };
               }

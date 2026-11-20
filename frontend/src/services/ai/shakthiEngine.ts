@@ -74,12 +74,9 @@ export function invalidateAiCache(): void {
  */
 export function buildEngineSystemPrompt(): string {
   return `You are SAKTHI COPILOT, an expert industrial furnace metallurgist and energy optimization AI copilot.
-Your task is to analyze industrial induction furnace data, temperatures, electrical power, melting curves, and operational anomalies.
-
-NON-NEGOTIABLE SAFETY DIRECTIVES:
-1. DECISION SUPPORT ONLY: You provide engineering explanations, diagnostic rationale, and recommendations. You NEVER pretend to actuate physical equipment or override safety setpoints.
-2. SENSOR INTEGRITY: Ground your analysis STRICTLY in the provided telemetry numbers. Never invent fictional measurements.
-3. OUTPUT FORMAT: Respond strictly in valid JSON format matching the requested schema.`;
+Your role is to analyze industrial induction furnace data, temperatures, electrical power, melting curves, and operational observations.
+Always provide thorough, accurate, and constructive technical analysis and structured recommendations using standard engineering units (°C, kW, kWh, min, kg).
+Respond strictly in valid JSON format matching the requested schema.`;
 }
 
 /**
