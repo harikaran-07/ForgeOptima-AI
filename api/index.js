@@ -34,12 +34,19 @@ export default function handler(req, res) {
       return res.status(200).end();
     }
 
-  // Parse path from URL (handling both /api/path and direct paths)
-  const fullUrl = req.url || "/";
-  const urlObj = new URL(fullUrl, "http://localhost");
-  let pathname = urlObj.pathname.replace(/^\/api/, "");
-  if (!pathname.startsWith("/")) pathname = "/" + pathname;
-  if (pathname === "" || pathname === "/") pathname = "/health";
+    // Parse path from URL (handling x-matched-path, query.path, and raw URL)
+    let rawPath = req.headers["x-matched-path"] || "";
+    if (!rawPath && req.query && req.query.path) {
+      const p = req.query.path;
+      rawPath = "/api/" + (Array.isArray(p) ? p.join("/") : p);
+    }
+    if (!rawPath) {
+      rawPath = req.url || "/";
+    }
+    const urlObj = new URL(rawPath, "http://localhost");
+    let pathname = urlObj.pathname.replace(/^\/api/, "");
+    if (!pathname.startsWith("/")) pathname = "/" + pathname;
+    if (pathname === "" || pathname === "/") pathname = "/health";
 
   // Parse JSON body if present
   let body = req.body;
