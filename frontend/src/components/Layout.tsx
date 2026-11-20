@@ -17,7 +17,6 @@ import {
   Settings as SettingsIcon,
   ShieldAlert,
   Sparkles,
-  Wifi,
   X,
   Zap,
 } from "lucide-react";
@@ -26,9 +25,10 @@ import { Anomaly, FurnaceStatus } from "../lib/types";
 import { nf } from "../lib/format";
 import { Chip, StatusChip } from "./ui";
 import { isEngineReady } from "../services/ai/modelManager";
+import { RenderBackendStatusBadge } from "./RenderBackendStatus";
 
 const NAV = [
-  { to: "/", label: "Overview", icon: LayoutDashboard, end: true },
+  { to: "/", label: "Dashboard (Overview)", icon: LayoutDashboard, end: true },
   { to: "/live", label: "Live Furnace Monitoring", icon: Activity },
   { to: "/predictions", label: "AI Predictions", icon: BrainCircuit },
   { to: "/digital-twin", label: "Digital Twin", icon: Flame },
@@ -110,30 +110,29 @@ export default function Layout() {
   );
 
   const dataMode = status.data?.data_mode;
-  const connected = !status.error && !!status.data;
 
   return (
     <div className="flex min-h-screen bg-base-900 text-ink-100">
       {/* Sidebar */}
       <aside
         className={clsx(
-          "fixed inset-y-0 left-0 z-40 flex flex-col border-r border-base-700 bg-base-950/95 backdrop-blur-md transition-all duration-200 lg:static",
+          "fixed inset-y-0 left-0 z-40 flex flex-col border-r border-base-700 bg-base-950/95 backdrop-blur-md transition-all duration-200 md:static",
           collapsed ? "w-[68px]" : "w-[250px]",
-          mobileOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
+          mobileOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"
         )}
       >
         {/* Header */}
         <div className="flex h-[58px] items-center justify-between border-b border-base-700 px-3.5">
           <Brand compact={collapsed} />
           <button
-            className="text-ink-400 hover:text-white lg:hidden"
+            className="text-ink-400 hover:text-white md:hidden"
             onClick={() => setMobileOpen(false)}
             aria-label="Close navigation"
           >
             <X className="h-4 w-4" />
           </button>
           <button
-            className="hidden text-ink-400 hover:text-emerald lg:block transition-colors"
+            className="hidden text-ink-400 hover:text-emerald md:block transition-colors"
             onClick={() => setCollapsed(!collapsed)}
             title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
           >
@@ -224,7 +223,7 @@ export default function Layout() {
 
       {mobileOpen && (
         <div
-          className="fixed inset-0 z-30 bg-black/70 backdrop-blur-sm lg:hidden"
+          className="fixed inset-0 z-30 bg-black/70 backdrop-blur-sm md:hidden"
           onClick={() => setMobileOpen(false)}
         />
       )}
@@ -232,14 +231,31 @@ export default function Layout() {
       {/* Main Content Area */}
       <div className="flex min-w-0 flex-1 flex-col">
         {/* Top Navigation */}
-        <header className="sticky top-0 z-20 flex h-[58px] items-center gap-3 border-b border-base-700 bg-base-900/90 px-4 backdrop-blur-xl">
+        <header className="sticky top-0 z-20 flex h-[58px] items-center gap-2.5 border-b border-base-700 bg-base-900/90 px-3.5 backdrop-blur-xl">
           <button
-            className="text-ink-300 hover:text-white lg:hidden"
+            className="text-ink-300 hover:text-white md:hidden p-1 rounded-lg border border-base-700 bg-base-800"
             onClick={() => setMobileOpen(true)}
             aria-label="Open navigation"
           >
-            <Menu className="h-5 w-5" />
+            <Menu className="h-4 w-4" />
           </button>
+
+          {/* Unhidden Direct Dashboard Button */}
+          <NavLink
+            to="/"
+            className={({ isActive }) =>
+              clsx(
+                "flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[12px] font-semibold transition-all border shrink-0",
+                isActive
+                  ? "bg-emerald-deep/60 text-emerald-bright border-emerald/50 shadow-sm shadow-emerald/10"
+                  : "bg-base-800 text-ink-200 border-base-700 hover:text-white hover:border-emerald/40 hover:bg-base-750"
+              )
+            }
+            title="Open Intelligent Furnace Command Dashboard"
+          >
+            <LayoutDashboard className="h-3.5 w-3.5 text-emerald" />
+            <span>Dashboard</span>
+          </NavLink>
 
           <div className="hidden items-center gap-2 md:flex">
             <StatusChip status={status.data?.status ?? "unknown"} />
@@ -254,14 +270,11 @@ export default function Layout() {
             </Chip>
           </div>
 
-          <div className="ml-auto flex items-center gap-2.5">
-            <div className="hidden items-center gap-2.5 sm:flex">
-              {/* API Connection Status */}
-              <Chip tone={connected ? "good" : "warn"}>
-                <Wifi className="h-3 w-3" />
-                {connected ? "API Connected" : "Local Engine Active"}
-              </Chip>
+          <div className="ml-auto flex items-center gap-2">
+            {/* Live Render Backend Status Badge */}
+            <RenderBackendStatusBadge />
 
+            <div className="hidden items-center gap-2 sm:flex">
               {/* SAKTHI COPILOT Model Status */}
               <NavLink
                 to="/settings"

@@ -7,6 +7,7 @@ import { dt, nf } from "../lib/format";
 import { Chip, ErrorBox, Field, Notice, PageHeader, Panel, Spinner } from "../components/ui";
 import { ModelManager } from "../components/ModelManager";
 import { isEngineReady, isQwenModelCached } from "../lib/webllmEngine";
+import { RenderBackendStatusBadge } from "../components/RenderBackendStatus";
 
 interface SettingsPayload {
   runtime: {
@@ -272,8 +273,14 @@ export default function Settings() {
           </div>
         </Panel>
 
-        <Panel title="Environment" subtitle="Runtime configuration">
+        <Panel title="Environment" subtitle="Runtime configuration" action={<RenderBackendStatusBadge />}>
           <div className="space-y-1.5">
+            <div className="flex items-center justify-between border-b border-base-750/70 py-1.5">
+              <span className="flex items-center gap-1.5 text-[11.5px] text-ink-400">
+                <Server className="h-3 w-3 text-emerald" /> Render Backend
+              </span>
+              <span className="mono text-[11px] text-white">forgeoptima-ai.onrender.com</span>
+            </div>
             {[
               { label: "Version", value: s.environment.app_version, icon: Server },
               { label: "Environment", value: s.environment.environment, icon: Server },

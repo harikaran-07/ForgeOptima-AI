@@ -1,4 +1,5 @@
 import { FormEvent, useEffect, useRef, useState } from "react";
+import { Link } from "react-router-dom";
 import clsx from "clsx";
 import {
   AlertTriangle,
@@ -13,6 +14,7 @@ import {
   Download,
   Flame,
   Layers,
+  LayoutDashboard,
   MessageSquarePlus,
   Play,
   Power,
@@ -509,6 +511,15 @@ export default function ShakthiAI() {
         <Chip tone="good" className="hidden md:inline-flex">
           100% Private & Local
         </Chip>
+
+        <Link
+          to="/"
+          className="btn-ghost !py-1.5 !text-[12px] flex items-center gap-1.5"
+          title="Return to Intelligent Furnace Dashboard"
+        >
+          <LayoutDashboard className="h-3.5 w-3.5 text-emerald" />
+          <span>Dashboard</span>
+        </Link>
 
         <button
           className="btn-ghost !py-1.5 !text-[12px]"
