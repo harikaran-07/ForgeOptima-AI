@@ -11,11 +11,9 @@ import {
   Gauge,
   History,
   LayoutDashboard,
-  Menu,
   Settings as SettingsIcon,
   ShieldAlert,
   Sparkles,
-  X,
   Zap,
 } from "lucide-react";
 import { useFetch } from "../hooks/useFetch";
@@ -23,7 +21,6 @@ import { Anomaly, FurnaceStatus } from "../lib/types";
 import { nf } from "../lib/format";
 import { Chip, StatusChip } from "./ui";
 import { isEngineReady } from "../services/ai/modelManager";
-import { VercelBackendStatusBadge } from "./VercelBackendStatus";
 
 // The 11 permanently visible navigation items
 const NAV = [
@@ -78,7 +75,6 @@ function SidebarBrand() {
 }
 
 export default function Layout() {
-  const [mobileOpen, setMobileOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const location = useLocation();
 
@@ -95,9 +91,8 @@ export default function Layout() {
     return () => clearInterval(interval);
   }, []);
 
-  // Close mobile drawer on navigation
+  // Close notifications on route change
   useEffect(() => {
-    setMobileOpen(false);
     setNotificationsOpen(false);
   }, [location.pathname]);
 
@@ -111,28 +106,12 @@ export default function Layout() {
   return (
     <div className="min-h-screen bg-[#071411] text-[#ECFDF5] antialiased">
       {/* =========================================================================
-          1. PERMANENT SIDEBAR (Always visible on Desktop & Laptop: lg screens)
-             Slide-in drawer on mobile/tablet (< lg)
+          1. PERMANENT SIDEBAR: ALWAYS DISPLAYED, NEVER HIDDEN
       ========================================================================= */}
-      <aside
-        className={clsx(
-          "fixed top-0 bottom-0 left-0 z-40 flex w-[260px] flex-col border-r border-[#24513F] bg-[#0B1C16] shadow-xl transition-transform duration-200 ease-out select-none",
-          // On desktop (lg+), always visible and fixed to the left.
-          // On mobile (< lg), toggled by mobileOpen state.
-          mobileOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
-        )}
-      >
+      <aside className="fixed top-0 bottom-0 left-0 z-30 flex w-[260px] flex-col border-r border-[#24513F] bg-[#0B1C16] shadow-xl select-none">
         {/* Top Header Branding */}
-        <div className="flex h-[64px] shrink-0 items-center justify-between border-b border-[#24513F] bg-[#071411] px-4">
+        <div className="flex h-[64px] shrink-0 items-center border-b border-[#24513F] bg-[#071411] px-4">
           <SidebarBrand />
-          {/* Close button on mobile only */}
-          <button
-            className="rounded-lg p-1 text-[#9CB8AA] hover:bg-[#10231D] hover:text-[#ECFDF5] lg:hidden"
-            onClick={() => setMobileOpen(false)}
-            aria-label="Close navigation"
-          >
-            <X className="h-5 w-5" />
-          </button>
         </div>
 
         {/* Permanent Navigation Links (11 items) */}
@@ -218,55 +197,32 @@ export default function Layout() {
         </div>
       </aside>
 
-      {/* Mobile Backdrop Overlay */}
-      {mobileOpen && (
-        <div
-          className="fixed inset-0 z-30 bg-black/75 backdrop-blur-sm lg:hidden transition-opacity"
-          onClick={() => setMobileOpen(false)}
-        />
-      )}
-
       {/* =========================================================================
-          2. MAIN CONTENT AREA (Offset by sidebar width on lg screens)
+          2. MAIN CONTENT AREA (Permanently offset by 260px)
       ========================================================================= */}
-      <div className="flex min-w-0 flex-1 flex-col lg:ml-[260px]">
+      <div className="flex min-w-0 flex-1 flex-col ml-[260px]">
         {/* Top Navigation Bar */}
         <header className="sticky top-0 z-20 flex h-[64px] items-center justify-between gap-3 border-b border-[#24513F] bg-[#071411]/95 px-4 lg:px-6 backdrop-blur-xl">
-          {/* Left section: Hamburger (mobile only) & Telemetry Status Chips */}
-          <div className="flex items-center gap-3">
-            <button
-              className="rounded-lg border border-[#24513F] bg-[#10231D] p-2 text-[#9CB8AA] hover:text-[#ECFDF5] lg:hidden"
-              onClick={() => setMobileOpen(true)}
-              aria-label="Open navigation menu"
-            >
-              <Menu className="h-4 w-4" />
-            </button>
-
-            <div className="flex items-center gap-2">
-              <StatusChip status={status.data?.status ?? "unknown"} />
-              {status.data?.active_heat_id && (
-                <Chip tone="neutral">
-                  <span className="text-[#9CB8AA]">Heat</span>
-                  <span className="mono font-semibold text-white">{status.data.active_heat_id}</span>
-                </Chip>
-              )}
-              <div className="hidden sm:block">
-                <Chip tone="good">
-                  {dataMode === "simulated" ? "SIMULATED TELEMETRY" : "PLANT SENSORS CONNECTED"}
-                </Chip>
-              </div>
-            </div>
+          {/* Left section: Telemetry Status Chips */}
+          <div className="flex items-center gap-2.5">
+            <StatusChip status={status.data?.status ?? "unknown"} />
+            {status.data?.active_heat_id && (
+              <Chip tone="neutral">
+                <span className="text-[#9CB8AA]">Heat</span>
+                <span className="mono font-semibold text-white">{status.data.active_heat_id}</span>
+              </Chip>
+            )}
+            <Chip tone="good">
+              {dataMode === "simulated" ? "SIMULATED TELEMETRY" : "PLANT SENSORS CONNECTED"}
+            </Chip>
           </div>
 
-          {/* Right section: API Status, Sakthi Copilot Badge, Clock, Alerts, Profile */}
+          {/* Right section: Sakthi Copilot Badge, Temperature, Clock, Alerts, Profile */}
           <div className="flex items-center gap-2.5 sm:gap-3">
-            {/* API Connection Status Badge */}
-            <VercelBackendStatusBadge />
-
             {/* SAKTHI COPILOT Model Status Badge */}
             <NavLink
               to="/settings"
-              className="hidden sm:inline-flex items-center gap-1.5 rounded-lg border border-[#10B981]/30 bg-[#064E3B]/40 px-2.5 py-1 text-[11px] font-semibold text-[#ECFDF5] hover:border-[#10B981] hover:bg-[#064E3B]/60 transition-colors shadow-sm"
+              className="inline-flex items-center gap-1.5 rounded-lg border border-[#10B981]/30 bg-[#064E3B]/40 px-2.5 py-1 text-[11px] font-semibold text-[#ECFDF5] hover:border-[#10B981] hover:bg-[#064E3B]/60 transition-colors shadow-sm"
               title="Sakthi Copilot WebGPU Model Status"
             >
               <Sparkles className="h-3.5 w-3.5 text-[#34D399] animate-pulse" />
@@ -275,7 +231,7 @@ export default function Layout() {
 
             {/* Live Temperature readout */}
             {status.data && (
-              <span className="mono hidden md:inline-flex items-center rounded-lg border border-[#24513F] bg-[#10231D] px-2.5 py-1 text-[12px] font-semibold text-[#ECFDF5]">
+              <span className="mono hidden sm:inline-flex items-center rounded-lg border border-[#24513F] bg-[#10231D] px-2.5 py-1 text-[12px] font-semibold text-[#ECFDF5]">
                 {nf(status.data.temperature_c)} °C
               </span>
             )}
