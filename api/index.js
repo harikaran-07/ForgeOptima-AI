@@ -3,16 +3,36 @@
 // power optimizer, digital twin, reports, and Sakthi Copilot streaming operations directly on Vercel.
 
 export default function handler(req, res) {
-  // 1. CORS headers
-  res.setHeader("Access-Control-Allow-Origin", "*");
-  res.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type, X-Session-ID, Authorization");
-  res.setHeader("Access-Control-Max-Age", "86400");
-  res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
-
-  if (req.method === "OPTIONS") {
-    return res.status(200).end();
+  // Polyfill Express/Vercel helpers if running on native Node http.ServerResponse
+  if (typeof res.status !== "function") {
+    res.status = function (code) {
+      this.statusCode = code;
+      return this;
+    };
   }
+  if (typeof res.json !== "function") {
+    res.json = function (data) {
+      this.setHeader("Content-Type", "application/json; charset=utf-8");
+      return this.end(JSON.stringify(data));
+    };
+  }
+  if (typeof res.send !== "function") {
+    res.send = function (data) {
+      return this.end(data);
+    };
+  }
+
+  try {
+    // 1. CORS headers
+    res.setHeader("Access-Control-Allow-Origin", "*");
+    res.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS");
+    res.setHeader("Access-Control-Allow-Headers", "Content-Type, X-Session-ID, Authorization");
+    res.setHeader("Access-Control-Max-Age", "86400");
+    res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+
+    if (req.method === "OPTIONS") {
+      return res.status(200).end();
+    }
 
   // Parse path from URL (handling both /api/path and direct paths)
   const fullUrl = req.url || "/";
@@ -1113,10 +1133,16 @@ export default function handler(req, res) {
     return;
   }
 
-  // Default fallback for any unmatched /api route
-  return res.status(200).json({
-    status: "ok",
-    path: pathname,
-    timestamp: now.toISOString(),
-  });
-};
+    // Default fallback for any unmatched /api route
+    return res.status(200).json({
+      status: "ok",
+      path: pathname,
+      timestamp: now.toISOString(),
+    });
+  } catch (err) {
+    console.error("API handler error:", err);
+    res.statusCode = 500;
+    res.setHeader("Content-Type", "application/json; charset=utf-8");
+    return res.end(JSON.stringify({ error: err instanceof Error ? err.message : String(err), stack: err instanceof Error ? err.stack : undefined }));
+  }
+}
