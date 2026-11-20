@@ -2,7 +2,7 @@
 // Provides instant zero-cold-start responses for all dashboard, telemetry, ML predictions,
 // power optimizer, digital twin, reports, and Sakthi Copilot streaming operations directly on Vercel.
 
-module.exports = (req, res) => {
+export default function handler(req, res) {
   // 1. CORS headers
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS");
