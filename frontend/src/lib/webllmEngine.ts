@@ -1,12 +1,13 @@
 /**
  * Browser Local AI Engine using @mlc-ai/web-llm and WebGPU.
  *
- * Implements Qwen2.5 3B Instruct execution directly inside the user's browser:
+ * Implements Qwen2.5-0.5B-Instruct execution directly inside the user's browser:
  * - WebGPU capability & adapter diagnostics
- * - Storage availability and persistent cache checks
+ * - Storage availability and persistent cache checks (OPFS / CacheStorage / IndexedDB)
  * - Model download, caching, deletion, load, and unload
+ * - Real download and installation progress reporting
  * - Streaming text generation with abort/stop controls
- * - Mobile memory, battery, and tab suspension handling
+ * - 8 Installation States: Available | Downloading | Installing | Installed | Loading | Ready | Error | WebGPU Unsupported
  * - Zero external API transmission - 100% private local execution
  */
 
@@ -20,8 +21,18 @@ import {
   AppConfig,
 } from "@mlc-ai/web-llm";
 
-export const PRIMARY_MODEL_ID = "Qwen2.5-3B-Instruct-q4f16_1-MLC";
-export const FALLBACK_MODEL_ID = "Qwen2.5-3B-Instruct-q4f32_1-MLC";
+export const PRIMARY_MODEL_ID = "Qwen2.5-0.5B-Instruct-q4f16_1-MLC";
+export const FALLBACK_MODEL_ID = "Qwen2.5-0.5B-Instruct-q4f32_1-MLC";
+
+export type InstallationState =
+  | "Available"
+  | "Downloading"
+  | "Installing"
+  | "Installed"
+  | "Loading"
+  | "Ready"
+  | "Error"
+  | "WebGPU Unsupported";
 
 export interface WebGPUCapability {
   supported: boolean;
@@ -46,6 +57,7 @@ export interface StorageInfo {
   quotaMB: number;
   usageMB: number;
   availableMB: number;
+  modelStorageMB: number;
   persisted: boolean;
 }
 
@@ -62,33 +74,24 @@ export interface ModelMetadata {
   description: string;
 }
 
-export const QWEN_3B_METADATA: ModelMetadata = {
+export const QWEN_05B_METADATA: ModelMetadata = {
   id: PRIMARY_MODEL_ID,
-  name: "Qwen2.5 3B Instruct",
-  parameters: "3.09 Billion",
-  quantization: "4-bit (q4f16_1 / q4f32_1)",
-  downloadSizeMB: 1655, // ~1.62 GB
-  vramRequiredMB: 2505, // ~2.45 GB
+  name: "Qwen 2.5 0.5B Instruct",
+  parameters: "0.49 Billion",
+  quantization: "Q4 (q4f16_1 / q4f32_1)",
+  downloadSizeMB: 278, // ~276.2 MB exact binary shards + tokenizer
+  vramRequiredMB: 945, // ~944.62 MB VRAM
   contextWindow: 4096,
-  huggingFaceUrl: "https://huggingface.co/mlc-ai/Qwen2.5-3B-Instruct-q4f16_1-MLC",
+  huggingFaceUrl: "https://huggingface.co/mlc-ai/Qwen2.5-0.5B-Instruct-q4f16_1-MLC",
   license: "Apache 2.0",
   description:
-    "Alibaba Qwen2.5 3B Instruct quantized by MLC-AI for WebGPU execution. Optimized for industrial reasoning, metallurgy mathematics, and furnace telemetry copilot tasks.",
+    "Alibaba Qwen2.5 0.5B Instruct quantized to 4-bit by MLC-AI for lightweight, ultra-fast WebGPU in-browser inference. Runs locally on almost any modern laptop, desktop, or mobile GPU.",
 };
-
-export type ModelState =
-  | "uninitialized"
-  | "checking"
-  | "downloading"
-  | "ready"
-  | "generating"
-  | "error"
-  | "unloaded";
 
 export interface EngineProgress {
   progress: number; // 0 to 100
   text: string;
-  state: ModelState;
+  state: InstallationState;
   timeElapsed?: number;
 }
 
@@ -113,7 +116,7 @@ export async function detectWebGPU(): Promise<WebGPUCapability> {
       hasShaderF16: false,
       isMobile,
       error:
-        "WebGPU is not supported by your current browser. To run Qwen2.5 3B locally, please use modern Google Chrome (113+), Microsoft Edge (113+), or Safari (18+) with WebGPU enabled.",
+        "WebGPU is not supported by your current browser. To run Qwen2.5-0.5B-Instruct locally, please use modern Google Chrome (113+), Microsoft Edge (113+), or Safari (18+) with WebGPU enabled.",
     };
   }
 
@@ -137,9 +140,13 @@ export async function detectWebGPU(): Promise<WebGPUCapability> {
     let adapterInfo: WebGPUCapability["adapterInfo"] = undefined;
 
     try {
-      // Modern WebGPU adapter.info or legacy requestAdapterInfo()
       if ("info" in adapter && adapter.info) {
-        const info = adapter.info as any;
+        const info = adapter.info as {
+          vendor?: string;
+          architecture?: string;
+          device?: string;
+          description?: string;
+        };
         adapterInfo = {
           vendor: info.vendor,
           architecture: info.architecture,
@@ -147,7 +154,7 @@ export async function detectWebGPU(): Promise<WebGPUCapability> {
           description: info.description,
         };
       } else if ("requestAdapterInfo" in adapter) {
-        const info = await (adapter as any).requestAdapterInfo();
+        const info = await (adapter as { requestAdapterInfo: () => Promise<{ vendor?: string; architecture?: string; device?: string; description?: string }> }).requestAdapterInfo();
         adapterInfo = {
           vendor: info.vendor,
           architecture: info.architecture,
@@ -185,33 +192,66 @@ export async function detectWebGPU(): Promise<WebGPUCapability> {
 }
 
 /**
- * Checks browser storage quota and available space for model weights (~1.7 GB).
+ * Checks browser storage quota and available space using navigator.storage.estimate().
+ * Also inspects actual CacheStorage usage for MLC model files.
  */
 export async function checkStorageAvailability(): Promise<StorageInfo> {
-  if (typeof navigator === "undefined" || !navigator.storage || !navigator.storage.estimate) {
-    return { quotaMB: 0, usageMB: 0, availableMB: 0, persisted: false };
-  }
+  let quotaMB = 0;
+  let usageMB = 0;
+  let availableMB = 0;
+  let persisted = false;
+  let modelStorageMB = 0;
 
-  try {
-    const estimate = await navigator.storage.estimate();
-    const quota = estimate.quota || 0;
-    const usage = estimate.usage || 0;
-    const available = Math.max(quota - usage, 0);
+  if (typeof navigator !== "undefined" && navigator.storage && navigator.storage.estimate) {
+    try {
+      const estimate = await navigator.storage.estimate();
+      const quota = estimate.quota || 0;
+      const usage = estimate.usage || 0;
+      quotaMB = Math.round(quota / (1024 * 1024));
+      usageMB = Math.round(usage / (1024 * 1024));
+      availableMB = Math.max(quotaMB - usageMB, 0);
 
-    let persisted = false;
-    if (navigator.storage.persisted) {
-      persisted = await navigator.storage.persisted();
+      if (navigator.storage.persisted) {
+        persisted = await navigator.storage.persisted();
+      }
+    } catch {
+      // ignore
     }
-
-    return {
-      quotaMB: Math.round(quota / (1024 * 1024)),
-      usageMB: Math.round(usage / (1024 * 1024)),
-      availableMB: Math.round(available / (1024 * 1024)),
-      persisted,
-    };
-  } catch {
-    return { quotaMB: 0, usageMB: 0, availableMB: 0, persisted: false };
   }
+
+  // Calculate actual cache bytes for WebLLM model if available
+  if (typeof window !== "undefined" && "caches" in window) {
+    try {
+      const keys = await window.caches.keys();
+      let totalBytes = 0;
+      for (const key of keys) {
+        if (key.toLowerCase().includes("webllm") || key.toLowerCase().includes("mlc")) {
+          const cache = await window.caches.open(key);
+          const reqs = await cache.keys();
+          for (const req of reqs) {
+            const res = await cache.match(req);
+            if (res) {
+              const blob = await res.clone().blob();
+              totalBytes += blob.size;
+            }
+          }
+        }
+      }
+      if (totalBytes > 0) {
+        modelStorageMB = Math.round((totalBytes / (1024 * 1024)) * 10) / 10;
+      }
+    } catch {
+      // ignore
+    }
+  }
+
+  return {
+    quotaMB,
+    usageMB,
+    availableMB,
+    modelStorageMB: modelStorageMB > 0 ? modelStorageMB : (await isQwenModelCached() ? QWEN_05B_METADATA.downloadSizeMB : 0),
+    persisted,
+  };
 }
 
 /**
@@ -229,7 +269,7 @@ export async function requestPersistentStorage(): Promise<boolean> {
 }
 
 /**
- * Verifies if Qwen2.5 3B is already cached in browser Cache API / IndexedDB,
+ * Verifies if Qwen2.5 0.5B is already cached in browser Cache API / IndexedDB,
  * and returns the specific cached model ID if found.
  */
 export async function getCachedModelId(): Promise<string | null> {
@@ -252,13 +292,23 @@ export async function isQwenModelCached(): Promise<boolean> {
 /**
  * Deletes cached model weights, tokenizer, and wasm files from browser cache.
  */
-export async function deleteQwenModelCache(modelId = PRIMARY_MODEL_ID): Promise<void> {
+export async function deleteQwenModelCache(): Promise<void> {
   try {
     if (engineInstance) {
       await unloadEngine();
     }
-    await deleteModelAllInfoInCache(modelId, prebuiltAppConfig);
+    await deleteModelAllInfoInCache(PRIMARY_MODEL_ID, prebuiltAppConfig);
     await deleteModelAllInfoInCache(FALLBACK_MODEL_ID, prebuiltAppConfig);
+
+    // Also check and clean any leftover cache entries
+    if (typeof window !== "undefined" && "caches" in window) {
+      const keys = await window.caches.keys();
+      for (const key of keys) {
+        if (key.toLowerCase().includes("qwen") || key.toLowerCase().includes("webllm")) {
+          await window.caches.delete(key);
+        }
+      }
+    }
   } catch (err) {
     console.error("Failed to delete model cache:", err);
     throw err;
@@ -266,7 +316,7 @@ export async function deleteQwenModelCache(modelId = PRIMARY_MODEL_ID): Promise<
 }
 
 /**
- * Initializes or retrieves the loaded MLCEngine.
+ * Initializes or retrieves the loaded MLCEngine for Qwen2.5-0.5B-Instruct.
  */
 export async function loadQwenModel(
   onProgress?: (report: EngineProgress) => void,
@@ -275,12 +325,12 @@ export async function loadQwenModel(
     contextWindow?: number;
   }
 ): Promise<MLCEngine> {
-  // If engine already loaded with the same model, return it
+  // If engine already loaded with the same model, return it immediately
   if (engineInstance && currentLoadedModelId) {
     onProgress?.({
       progress: 100,
-      text: "Qwen2.5 3B Instruct is ready in WebGPU memory.",
-      state: "ready",
+      text: "Qwen 2.5 0.5B Instruct is ready in WebGPU memory.",
+      state: "Ready",
     });
     return engineInstance;
   }
@@ -288,6 +338,11 @@ export async function loadQwenModel(
   // Detect WebGPU capability
   const gpu = await detectWebGPU();
   if (!gpu.supported || !gpu.adapterAvailable) {
+    onProgress?.({
+      progress: 0,
+      text: gpu.error || "WebGPU is not supported on this device.",
+      state: "WebGPU Unsupported",
+    });
     throw new Error(gpu.error || "WebGPU is not available on this device.");
   }
 
@@ -299,14 +354,15 @@ export async function loadQwenModel(
   if (options?.forceFp32 || !gpu.hasShaderF16) {
     targetModelId = FALLBACK_MODEL_ID;
   } else if (cachedModelId) {
-    // Reuse whichever variant (fp16 or fp32) the user already downloaded!
     targetModelId = cachedModelId;
   }
 
   onProgress?.({
     progress: 5,
-    text: `Initializing WebGPU engine for ${targetModelId}...`,
-    state: "checking",
+    text: cachedModelId
+      ? `Loading ${targetModelId} from browser storage into WebGPU...`
+      : `Downloading ${targetModelId} from Hugging Face repository...`,
+    state: cachedModelId ? "Loading" : "Downloading",
   });
 
   const customAppConfig: AppConfig = {
@@ -333,8 +389,28 @@ export async function loadQwenModel(
       initProgressCallback: (report: InitProgressReport) => {
         const pct = Math.round((report.progress || 0) * 100);
         const text = report.text || "Loading model assets...";
-        let state: ModelState = "downloading";
-        if (pct >= 100) state = "ready";
+        let state: InstallationState = cachedModelId ? "Loading" : "Downloading";
+
+        if (pct >= 100) {
+          state = "Ready";
+        } else if (
+          text.toLowerCase().includes("install") ||
+          text.toLowerCase().includes("cache") ||
+          text.toLowerCase().includes("finish") ||
+          text.toLowerCase().includes("pack")
+        ) {
+          state = "Installing";
+        } else if (
+          text.toLowerCase().includes("load") ||
+          text.toLowerCase().includes("compil") ||
+          text.toLowerCase().includes("init") ||
+          cachedModelId
+        ) {
+          state = "Loading";
+        } else {
+          state = "Downloading";
+        }
+
         onProgress?.({
           progress: pct,
           text,
@@ -353,19 +429,19 @@ export async function loadQwenModel(
 
     onProgress?.({
       progress: 100,
-      text: "Qwen2.5 3B Instruct model successfully loaded into WebGPU.",
-      state: "ready",
+      text: "Qwen 2.5 0.5B Instruct model successfully loaded into WebGPU.",
+      state: "Ready",
     });
 
     return engine;
   } catch (err) {
     engineInstance = null;
     currentLoadedModelId = null;
-    const msg = err instanceof Error ? err.message : "Failed to load Qwen2.5 3B model.";
+    const msg = err instanceof Error ? err.message : "Failed to load Qwen 2.5 0.5B model.";
     onProgress?.({
       progress: 0,
       text: msg,
-      state: "error",
+      state: "Error",
     });
     throw err;
   } finally {
@@ -414,55 +490,33 @@ export function getActiveModelId(): string | null {
 }
 
 /**
- * Interrupts active text generation.
- */
-export function stopGeneration(): void {
-  if (engineInstance) {
-    try {
-      engineInstance.interruptGenerate();
-    } catch (e) {
-      console.warn("Interrupt generate error:", e);
-    }
-  }
-}
-
-/**
- * Streams chat completion using the loaded Qwen2.5 3B WebLLM engine.
- * Execution happens 100% locally on the device GPU.
+ * Streams chat completion using the loaded Qwen2.5-0.5B-Instruct WebGPU engine.
  */
 export async function streamQwenChat(
   messages: { role: "system" | "user" | "assistant"; content: string }[],
-  onDelta: (text: string) => void,
+  onDelta: (delta: string) => void,
   onDone: () => void,
-  onError: (error: string) => void,
+  onError: (errorText: string) => void,
   signal?: AbortSignal
 ): Promise<void> {
   if (!engineInstance) {
-    onError("Qwen2.5 3B model is not loaded in browser memory. Please download and load the model first.");
+    onError("WebGPU Local Engine is not initialized. Please load Qwen 2.5 0.5B first.");
     return;
   }
 
-  if (signal?.aborted) return;
-
-  const onAbort = () => {
-    stopGeneration();
-  };
-  signal?.addEventListener("abort", onAbort);
-
   try {
-    const completion = await engineInstance.chat.completions.create({
-      messages: messages.map((m) => ({
-        role: m.role,
-        content: m.content,
-      })),
-      temperature: 0.4,
-      top_p: 0.9,
-      max_tokens: 1500,
+    const asyncChunkGenerator = await engineInstance.chat.completions.create({
+      messages: messages as any,
       stream: true,
+      temperature: 0.3,
+      top_p: 0.85,
+      max_tokens: 1024,
     });
 
-    for await (const chunk of completion) {
-      if (signal?.aborted) break;
+    for await (const chunk of asyncChunkGenerator) {
+      if (signal?.aborted) {
+        break;
+      }
       const delta = chunk.choices[0]?.delta?.content || "";
       if (delta) {
         onDelta(delta);
@@ -475,9 +529,21 @@ export async function streamQwenChat(
       onDone();
       return;
     }
-    const errText = err instanceof Error ? err.message : "Inference error occurred.";
-    onError(errText);
-  } finally {
-    signal?.removeEventListener("abort", onAbort);
+    const msg = err instanceof Error ? err.message : "Inference failed during local token generation.";
+    console.error("Local WebGPU inference error:", err);
+    onError(msg);
+  }
+}
+
+/**
+ * Aborts current generation in flight.
+ */
+export function stopGeneration(): void {
+  if (engineInstance) {
+    try {
+      engineInstance.interruptGenerate();
+    } catch {
+      // interrupt not available or already completed
+    }
   }
 }

@@ -46,9 +46,9 @@ class Settings(BaseSettings):
         "https://forge-optima-ai.vercel.app",
     ]
 
-    # --- AI Integration (Qwen2.5 3B Browser Local WebLLM Architecture) -----
+    # --- AI Integration (Qwen2.5-0.5B-Instruct Browser Local WebLLM Architecture) -
     ai_provider: str = "webllm"                # webllm (Browser Local AI) | local_engine
-    ai_model: str = "Qwen2.5-3B-Instruct"      # WebLLM WebGPU local browser model
+    ai_model: str = "Qwen2.5-0.5B-Instruct"    # WebLLM WebGPU local browser model
     ai_timeout_seconds: float = 30.0
     ai_rate_limit_per_minute: int = 60         # Per-session rate limit
     ai_context_heat_limit: int = 12

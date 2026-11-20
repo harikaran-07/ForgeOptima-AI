@@ -104,21 +104,23 @@ export default function Settings() {
   return (
     <div className="space-y-5">
       <PageHeader
-        eyebrow="Platform configuration"
-        title="Settings & AI Manager"
-        description="Operator-configurable analytics parameters, Browser Local AI (WebLLM Qwen2.5 3B) management, WebGPU diagnostics, and model registry controls."
+        eyebrow="On-Device Intelligence"
+        title="AI Model Settings"
+        description="Shakthi AI runs entirely on your device using WebGPU. No cloud AI, no API key and no external AI server."
       >
-        <Chip tone={s.models.ready ? "good" : "crit"}>Models {s.models.ready ? s.models.version : "not loaded"}</Chip>
         <Chip tone={isLocalLoaded ? "good" : isLocalCached ? "cyan" : "warn"}>
-          Qwen2.5 3B {isLocalLoaded ? "Loaded in GPU" : isLocalCached ? "Cached" : "Ready to Download"}
+          Qwen 2.5 0.5B {isLocalLoaded ? "Ready in GPU" : isLocalCached ? "Installed" : "Available"}
         </Chip>
-        <Chip tone="neutral">{s.environment.environment}</Chip>
+        <Chip tone="cyan">WebGPU Acceleration</Chip>
+        <Chip tone="good" className="hidden sm:inline-flex">
+          100% Private & Local
+        </Chip>
       </PageHeader>
 
       {message && <Notice tone="good">{message}</Notice>}
       {error && <ErrorBox message={error} />}
 
-      {/* Full Browser Local AI Model Manager */}
+      {/* CyberShield AI Style: Hero Model Card & WebGPU Diagnostics */}
       <ModelManager
         onModelReady={() => {
           setIsLocalLoaded(true);
@@ -168,7 +170,7 @@ export default function Settings() {
             </div>
             <div className="flex items-center justify-between border-b border-base-750/70 pb-2">
               <span className="text-ink-400">Model Name</span>
-              <span className="mono text-electric font-medium">Qwen2.5 3B Instruct</span>
+              <span className="mono text-electric font-medium">Qwen2.5-0.5B-Instruct</span>
             </div>
             <div className="flex items-center justify-between border-b border-base-750/70 pb-2">
               <span className="text-ink-400">External API Key</span>

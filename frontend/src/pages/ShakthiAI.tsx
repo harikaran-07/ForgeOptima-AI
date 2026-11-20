@@ -103,7 +103,7 @@ export default function ShakthiAI() {
   const [loadProgress, setLoadProgress] = useState<EngineProgress>({
     progress: 0,
     text: "Idle",
-    state: "uninitialized",
+    state: "Available",
   });
 
   // Conversations & Chat State
@@ -489,7 +489,7 @@ export default function ShakthiAI() {
       <PageHeader
         eyebrow="Module 09 · Industrial Furnace Copilot"
         title="SHAKTHI AI"
-        description="Browser Local AI powered by Qwen2.5 3B Instruct running directly inside your browser via WebGPU. Grounded decision support for furnace temperature, combustion, thermal efficiency, energy, and anomalies — zero external API keys, 100% private."
+        description="Browser Local AI powered by Qwen2.5-0.5B-Instruct running directly inside your browser via WebGPU. Grounded decision support for furnace temperature, combustion, thermal efficiency, energy, and anomalies — zero external API keys, 100% private."
       >
         <Chip tone={modelReady ? "good" : isCached ? "cyan" : "warn"}>
           <span
@@ -498,12 +498,12 @@ export default function ShakthiAI() {
               modelReady ? "animate-pulseSoft bg-good" : isCached ? "bg-cyan" : "bg-warn"
             )}
           />
-          {modelReady ? "Qwen2.5 3B Active (WebGPU)" : isCached ? "Model Cached" : "Model Not Loaded"}
+          {modelReady ? "Qwen2.5 0.5B Active (WebGPU)" : isCached ? "Model Installed" : "Model Not Loaded"}
         </Chip>
 
         <Chip tone="neutral" className="hidden sm:inline-flex">
           <Cpu className="h-3 w-3 text-cyan" />
-          <span>WebLLM Local Engine</span> · 3.09B params
+          <span>WebLLM Local Engine</span> · 490M params
         </Chip>
 
         <Chip tone="good" className="hidden md:inline-flex">
@@ -516,7 +516,7 @@ export default function ShakthiAI() {
           title="Toggle WebGPU & Model Installation Manager"
         >
           <Layers className="h-3.5 w-3.5" />
-          <span>{showModelManager ? "Hide Model Manager" : "Model Manager"}</span>
+          <span>{showModelManager ? "Hide Model Manager" : "AI Model Settings"}</span>
         </button>
       </PageHeader>
 
@@ -540,16 +540,16 @@ export default function ShakthiAI() {
               <div className="flex items-center gap-2">
                 <Sparkles className="h-4 w-4 text-electric" />
                 <h3 className="text-[13px] font-semibold text-white">
-                  {isCached ? "Qwen2.5 3B is Cached in Browser" : "Qwen2.5 3B Instruct Ready for Local WebGPU Inference"}
+                  {isCached ? "Qwen2.5 0.5B is Installed in Browser Storage" : "Qwen2.5-0.5B-Instruct Ready for Local WebGPU Inference"}
                 </h3>
                 <span className="mono rounded bg-electric/15 px-2 py-0.5 text-[10px] text-electric">
-                  ~1.62 GB
+                  ~278 MB
                 </span>
               </div>
               <p className="text-[11.5px] text-ink-300 leading-relaxed max-w-2xl">
                 {isCached
-                  ? "Model weights are already stored in your browser cache. Load the model into WebGPU memory to start chatting."
-                  : "Download Qwen2.5 3B Instruct directly from HuggingFace to your browser. Runs 100% offline with WebGPU acceleration without any paid API key or Ollama installation."}
+                  ? "Model weights are already verified and stored in your browser cache. Load the model into WebGPU memory to start chatting."
+                  : "Download Qwen2.5-0.5B-Instruct directly from HuggingFace to your browser storage. Lightweight (~278 MB), ultra-fast on WebGPU, and runs 100% locally without API keys or Ollama."}
               </p>
             </div>
 
@@ -567,7 +567,7 @@ export default function ShakthiAI() {
                   className="btn-primary !py-2 !px-4 !text-[12px] bg-gradient-to-r from-electric to-cyan hover:from-electric/90 hover:to-cyan/90"
                 >
                   {isCached ? <Play className="h-4 w-4" /> : <Download className="h-4 w-4" />}
-                  <span>{isCached ? "Load Model into WebGPU" : "Download & Load Qwen2.5 3B"}</span>
+                  <span>{isCached ? "Load Model into WebGPU" : "Download & Install Qwen2.5 0.5B"}</span>
                 </button>
               )}
             </div>
@@ -593,7 +593,7 @@ export default function ShakthiAI() {
         {/* Main Conversation Stream */}
         <div className="xl:col-span-3">
           <Panel
-            title="Qwen2.5 3B Local Generative Stream"
+            title="Qwen2.5 0.5B Local Generative Stream"
             subtitle={
               modelReady
                 ? "WebGPU Accelerated · Local Execution · Zero Network Latency"
@@ -638,7 +638,7 @@ export default function ShakthiAI() {
                   </div>
                   <h3 className="mt-3 text-[16px] font-semibold text-white tracking-tight">SHAKTHI AI</h3>
                   <p className="mt-0.5 text-[12px] font-medium text-electric tracking-wide">
-                    Qwen2.5 3B Instruct · Browser Local AI Copilot
+                    Qwen2.5-0.5B-Instruct · Browser Local AI Copilot
                   </p>
                   <p className="text-[11px] text-ink-400 mt-0.5">
                     100% Private WebGPU Inference · No Cloud API Required
@@ -717,7 +717,7 @@ export default function ShakthiAI() {
                         <div className="mt-2.5 flex items-center justify-between border-t border-base-750/70 pt-1.5 text-[10.5px] text-ink-500">
                           <span className="flex items-center gap-1 text-[10px] text-ink-500 font-mono">
                             <Sparkles className="h-2.5 w-2.5 text-electric" />
-                            Qwen2.5 3B Instruct · WebGPU
+                            Qwen2.5-0.5B-Instruct · WebGPU
                           </span>
                           <div className="flex items-center gap-1.5">
                             {index === messages.length - 1 && (
@@ -764,7 +764,7 @@ export default function ShakthiAI() {
                   <div className="flex-1 rounded-xl border border-electric/30 bg-base-900/90 p-3 space-y-2">
                     <div className="flex items-center justify-between text-[11px]">
                       <span className="font-semibold text-white">
-                        {isCached ? "Loading Qwen2.5 3B into WebGPU VRAM..." : "Downloading Qwen2.5 3B Instruct to Browser Storage..."}
+                        {isCached ? "Loading Qwen2.5 0.5B into WebGPU VRAM..." : "Downloading Qwen2.5-0.5B-Instruct to Browser Storage..."}
                       </span>
                       <span className="mono font-semibold text-electric">{loadProgress.progress}%</span>
                     </div>
@@ -787,7 +787,7 @@ export default function ShakthiAI() {
                   </div>
                   <div className="rounded-xl border border-base-700 bg-base-900/90 px-4 py-3 text-[12px] text-ink-400 flex items-center gap-2">
                     <span className="inline-block h-2 w-2 rounded-full bg-electric animate-ping" />
-                    <span>Qwen2.5 3B is generating response directly on your GPU…</span>
+                    <span>Qwen2.5 0.5B is generating response directly on your GPU…</span>
                   </div>
                 </div>
               )}
@@ -813,10 +813,10 @@ export default function ShakthiAI() {
                     modelReady
                       ? "Ask SHAKTHI AI about furnace condition, energy, melting time, or anomalies…"
                       : loadingModel
-                      ? `Qwen2.5 3B is initializing in WebGPU (${loadProgress.progress}%)...`
+                      ? `Qwen2.5 0.5B is initializing in WebGPU (${loadProgress.progress}%)...`
                       : isCached
-                      ? "Ask a question (will load cached Qwen2.5 3B into WebGPU)..."
-                      : "Ask about furnace telemetry, or click Download above for local Qwen2.5 3B..."
+                      ? "Ask a question (will load cached Qwen2.5 0.5B into WebGPU)..."
+                      : "Ask about furnace telemetry, or click Download above for local Qwen2.5 0.5B..."
                   }
                   value={input}
                   rows={1}
@@ -888,20 +888,20 @@ export default function ShakthiAI() {
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-[11.5px] text-ink-400">Model Name</span>
-                <span className="mono text-[11px] text-ink-100 font-medium">Qwen2.5 3B Instruct</span>
+                <span className="mono text-[11px] text-ink-100 font-medium">Qwen2.5-0.5B-Instruct</span>
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-[11.5px] text-ink-400">Runtime Engine</span>
-                <span className="mono text-[11px] text-ink-200">@mlc-ai/web-llm</span>
+                <span className="mono text-[11px] text-ink-200">@mlc-ai/web-llm (WebGPU)</span>
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-[11.5px] text-ink-400">Hardware Accel</span>
-                <span className="mono text-[11px] text-good font-medium">WebGPU Shader</span>
+                <span className="mono text-[11px] text-good font-medium">WebGPU Direct</span>
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-[11.5px] text-ink-400">Memory Status</span>
                 <span className="mono text-[11px] text-ink-200">
-                  {modelReady ? "~2.5 GB allocated" : "Not in memory"}
+                  {modelReady ? "~945 MB allocated" : "Not in memory"}
                 </span>
               </div>
               <div className="flex items-center justify-between">

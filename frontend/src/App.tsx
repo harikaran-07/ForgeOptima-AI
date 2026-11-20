@@ -28,6 +28,7 @@ export default function App() {
         <Route path="/shakthi-ai" element={<ShakthiAI />} />
         <Route path="/reports" element={<Reports />} />
         <Route path="/settings" element={<Settings />} />
+        <Route path="/ai-settings" element={<Settings />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Route>
     </Routes>

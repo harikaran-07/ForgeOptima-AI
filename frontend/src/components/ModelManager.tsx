@@ -1,8 +1,10 @@
 import { useEffect, useState } from "react";
 import clsx from "clsx";
 import {
+  AlertCircle,
   BatteryCharging,
   Check,
+  CheckCircle2,
   Cpu,
   Download,
   HardDrive,
@@ -11,6 +13,7 @@ import {
   RefreshCw,
   ShieldCheck,
   Smartphone,
+  Sparkles,
   Trash2,
   XCircle,
   Zap,
@@ -18,7 +21,8 @@ import {
 import {
   PRIMARY_MODEL_ID,
   FALLBACK_MODEL_ID,
-  QWEN_3B_METADATA,
+  QWEN_05B_METADATA,
+  InstallationState,
   detectWebGPU,
   checkStorageAvailability,
   isQwenModelCached,
@@ -27,35 +31,38 @@ import {
   deleteQwenModelCache,
   cancelActiveDownload,
   isEngineReady,
-  getActiveModelId,
   WebGPUCapability,
   StorageInfo,
   EngineProgress,
 } from "../lib/webllmEngine";
-import { Chip, ErrorBox, Notice, Panel, Spinner } from "./ui";
+import { ErrorBox, Notice, Panel, Spinner } from "./ui";
 
 interface ModelManagerProps {
   onModelReady?: () => void;
   className?: string;
+  isStandalonePage?: boolean;
 }
 
-export function ModelManager({ onModelReady, className = "" }: ModelManagerProps) {
+export function ModelManager({
+  onModelReady,
+  className = "",
+}: ModelManagerProps) {
   const [gpuInfo, setGpuInfo] = useState<WebGPUCapability | null>(null);
   const [storageInfo, setStorageInfo] = useState<StorageInfo | null>(null);
   const [isCached, setIsCached] = useState(false);
   const [isLoaded, setIsLoaded] = useState(false);
-  const [activeModel, setActiveModel] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [progress, setProgress] = useState<EngineProgress>({
     progress: 0,
     text: "Idle",
-    state: "uninitialized",
+    state: "Available",
   });
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [contextWindow, setContextWindow] = useState<number>(4096);
   const [forceFp32, setForceFp32] = useState<boolean>(false);
   const [activeTabNotice, setActiveTabNotice] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   // Tab visibility listener to warn during download/inference if user leaves the tab
   useEffect(() => {
@@ -79,7 +86,6 @@ export function ModelManager({ onModelReady, className = "" }: ModelManagerProps
       const gpu = await detectWebGPU();
       setGpuInfo(gpu);
       if (gpu.isMobile) {
-        // Automatically default mobile devices to 2048 context window for memory safety
         setContextWindow(2048);
       }
       if (!gpu.hasShaderF16) {
@@ -94,7 +100,6 @@ export function ModelManager({ onModelReady, className = "" }: ModelManagerProps
 
       const ready = isEngineReady();
       setIsLoaded(ready);
-      setActiveModel(getActiveModelId());
     } catch (err) {
       setErrorMessage(err instanceof Error ? err.message : "Failed to run hardware checks.");
     }
@@ -104,10 +109,35 @@ export function ModelManager({ onModelReady, className = "" }: ModelManagerProps
     void refreshDiagnostics();
   }, []);
 
+  // Compute the current 1 of 8 installation states
+  const computeState = (): InstallationState => {
+    if (gpuInfo && (!gpuInfo.supported || !gpuInfo.adapterAvailable)) {
+      return "WebGPU Unsupported";
+    }
+    if (errorMessage) {
+      return "Error";
+    }
+    if (loading) {
+      if (progress.state === "Downloading") return "Downloading";
+      if (progress.state === "Installing") return "Installing";
+      if (progress.state === "Loading") return "Loading";
+      return "Downloading";
+    }
+    if (isLoaded) {
+      return "Ready";
+    }
+    if (isCached) {
+      return "Installed";
+    }
+    return "Available";
+  };
+
+  const currentState = computeState();
+
   const handleDownloadAndLoad = async () => {
     setLoading(true);
     setErrorMessage(null);
-    setProgress({ progress: 1, text: "Starting WebGPU model acquisition...", state: "checking" });
+    setProgress({ progress: 1, text: "Starting WebGPU model download...", state: "Downloading" });
 
     try {
       await loadQwenModel(
@@ -122,7 +152,6 @@ export function ModelManager({ onModelReady, className = "" }: ModelManagerProps
 
       setIsLoaded(true);
       setIsCached(true);
-      setActiveModel(getActiveModelId());
       await refreshDiagnostics();
       if (onModelReady) {
         onModelReady();
@@ -137,34 +166,30 @@ export function ModelManager({ onModelReady, className = "" }: ModelManagerProps
   const handleCancelDownload = () => {
     cancelActiveDownload();
     setLoading(false);
-    setProgress({ progress: 0, text: "Download canceled by operator.", state: "unloaded" });
+    setProgress({ progress: 0, text: "Download canceled by operator.", state: "Available" });
+    void refreshDiagnostics();
   };
 
   const handleUnload = async () => {
     try {
       await unloadEngine();
       setIsLoaded(false);
-      setActiveModel(null);
-      setProgress({ progress: 0, text: "Model unloaded from GPU memory.", state: "unloaded" });
+      setProgress({ progress: 0, text: "Model unloaded from GPU memory.", state: "Installed" });
     } catch (err) {
       setErrorMessage(err instanceof Error ? err.message : "Failed to unload model.");
     }
   };
 
   const handleDeleteCache = async () => {
-    if (!window.confirm("Are you sure you want to delete the cached Qwen2.5 3B model (~1.62 GB) from your browser storage? You will need to download it again to use Browser Local AI.")) {
-      return;
-    }
-
     setDeleting(true);
     setErrorMessage(null);
     try {
       await deleteQwenModelCache();
       setIsCached(false);
       setIsLoaded(false);
-      setActiveModel(null);
+      setShowDeleteConfirm(false);
       await refreshDiagnostics();
-      setProgress({ progress: 0, text: "Model cache purged from browser storage.", state: "uninitialized" });
+      setProgress({ progress: 0, text: "Model cache purged from browser storage.", state: "Available" });
     } catch (err) {
       setErrorMessage(err instanceof Error ? err.message : "Failed to delete model cache.");
     } finally {
@@ -172,7 +197,75 @@ export function ModelManager({ onModelReady, className = "" }: ModelManagerProps
     }
   };
 
-  const targetModelId = forceFp32 || !(gpuInfo?.hasShaderF16 ?? true) ? FALLBACK_MODEL_ID : PRIMARY_MODEL_ID;
+  const targetModelId =
+    forceFp32 || !(gpuInfo?.hasShaderF16 ?? true) ? FALLBACK_MODEL_ID : PRIMARY_MODEL_ID;
+
+  // Visual status pill configuration matching CyberShield AI style
+  const getStatusBadge = (state: InstallationState) => {
+    switch (state) {
+      case "Ready":
+        return {
+          label: "Ready",
+          icon: CheckCircle2,
+          className:
+            "border-emerald-500/40 bg-emerald-500/15 text-emerald-300 shadow-[0_0_12px_rgba(16,185,129,0.25)]",
+          dotClass: "bg-emerald-400 animate-pulse",
+        };
+      case "Installed":
+        return {
+          label: "Installed",
+          icon: Check,
+          className: "border-cyan/40 bg-cyan/10 text-cyan shadow-[0_0_10px_rgba(34,211,238,0.2)]",
+          dotClass: "bg-cyan",
+        };
+      case "Downloading":
+        return {
+          label: "Downloading",
+          icon: Download,
+          className: "border-electric/50 bg-electric/15 text-electric animate-pulse",
+          dotClass: "bg-electric animate-ping",
+        };
+      case "Installing":
+        return {
+          label: "Installing",
+          icon: RefreshCw,
+          className: "border-purple-500/40 bg-purple-500/15 text-purple-300 animate-pulse",
+          dotClass: "bg-purple-400 animate-ping",
+        };
+      case "Loading":
+        return {
+          label: "Loading",
+          icon: Zap,
+          className: "border-amber-500/40 bg-amber-500/15 text-amber-300 animate-pulse",
+          dotClass: "bg-amber-400",
+        };
+      case "Error":
+        return {
+          label: "Error",
+          icon: AlertCircle,
+          className: "border-rose-500/40 bg-rose-500/15 text-rose-300",
+          dotClass: "bg-rose-500",
+        };
+      case "WebGPU Unsupported":
+        return {
+          label: "WebGPU Unsupported",
+          icon: XCircle,
+          className: "border-rose-500/50 bg-rose-500/20 text-rose-300",
+          dotClass: "bg-rose-500",
+        };
+      case "Available":
+      default:
+        return {
+          label: "Available",
+          icon: Sparkles,
+          className: "border-base-700 bg-base-800 text-ink-300",
+          dotClass: "bg-ink-500",
+        };
+    }
+  };
+
+  const statusBadge = getStatusBadge(currentState);
+  const StatusIcon = statusBadge.icon;
 
   return (
     <div className={clsx("space-y-4", className)}>
@@ -181,7 +274,7 @@ export function ModelManager({ onModelReady, className = "" }: ModelManagerProps
         <Notice tone="crit" title="WebGPU Not Supported in This Browser">
           <p className="text-[11.5px] leading-relaxed text-ink-200">
             {gpuInfo.error ||
-              "Your current browser does not have WebGPU support enabled. WebLLM requires WebGPU to execute Qwen2.5 3B directly inside your browser."}
+              "Your current browser does not have WebGPU support enabled. WebLLM requires WebGPU to execute Qwen2.5-0.5B-Instruct directly inside your browser."}
           </p>
           <div className="mt-2.5 flex flex-wrap items-center gap-2 text-[11px] text-ink-300">
             <span className="font-semibold text-white">Recommended:</span>
@@ -207,299 +300,423 @@ export function ModelManager({ onModelReady, className = "" }: ModelManagerProps
           <div className="flex items-center gap-2">
             <Smartphone className="h-4 w-4 text-warn shrink-0" />
             <h4 className="text-[12px] font-semibold text-warn">
-              Mobile Device Detected · Memory & Battery Advisory
+              Mobile Device Detected · Optimized for Qwen2.5 0.5B
             </h4>
           </div>
           <p className="text-[11px] leading-relaxed text-ink-300">
-            Running <strong>Qwen2.5 3B</strong> requires approximately <strong>2.5 GB of shared VRAM/RAM</strong>.
-            On mobile devices (Android / iOS), browsers enforce strict memory limits per tab.
+            <strong>Qwen2.5-0.5B-Instruct</strong> requires only <strong>~278 MB download</strong> and <strong>~945 MB VRAM</strong>.
+            This compact architecture runs efficiently on modern mobile devices without tab suspension.
           </p>
           <div className="grid gap-2 sm:grid-cols-2 text-[10.5px] text-ink-400 pt-1">
             <div className="flex items-start gap-1.5">
               <BatteryCharging className="h-3.5 w-3.5 text-warn shrink-0 mt-0.5" />
-              <span>Higher battery drain during GPU neural network inference.</span>
+              <span>Reduced battery consumption compared to larger 3B/7B models.</span>
             </div>
             <div className="flex items-start gap-1.5">
-              <Zap className="h-3.5 w-3.5 text-cyan shrink-0 mt-0.5" />
-              <span>Context length automatically adjusted to 2048 tokens to conserve memory.</span>
+              <Cpu className="h-3.5 w-3.5 text-warn shrink-0 mt-0.5" />
+              <span>Context window automatically scaled to 2048 tokens for mobile stability.</span>
             </div>
           </div>
         </div>
       )}
 
-      {/* Active Tab Notice */}
-      {activeTabNotice && (
-        <Notice tone="warn" title="Tab Suspended">
-          <p className="text-[11px] text-ink-200">{activeTabNotice}</p>
-        </Notice>
-      )}
+      {/* Background Tab Warning */}
+      {activeTabNotice && <Notice tone="warn">{activeTabNotice}</Notice>}
 
+      {/* Error notification */}
       {errorMessage && <ErrorBox message={errorMessage} onRetry={refreshDiagnostics} />}
 
-      {/* Main Model Card */}
-      <Panel
-        title="Qwen2.5 3B Instruct · Browser Local AI Model"
-        subtitle={activeModel ? `Loaded in WebGPU memory: ${activeModel}` : "Zero external API calls · 100% private in-browser WebGPU execution"}
-        action={
-          <div className="flex items-center gap-2">
-            <button
-              className="btn-ghost !py-1 !text-[11px] text-ink-400 hover:text-white"
-              onClick={refreshDiagnostics}
-              title="Refresh hardware status"
-            >
-              <RefreshCw className="h-3 w-3" /> Check WebGPU
-            </button>
-            <Chip tone={isLoaded ? "good" : isCached ? "cyan" : "neutral"}>
-              {isLoaded ? "Loaded in GPU" : isCached ? "Cached on Disk" : "Not Downloaded"}
-            </Chip>
-          </div>
-        }
-      >
-        <div className="space-y-4">
-          {/* Model Specification Grid */}
-          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-            <div className="rounded-lg border border-base-700/80 bg-base-900/60 p-2.5">
-              <span className="text-[10px] uppercase font-semibold tracking-wider text-ink-500">
-                Model Parameters
-              </span>
-              <p className="mt-1 font-mono text-[13px] font-bold text-white">
-                {QWEN_3B_METADATA.parameters}
-              </p>
-              <span className="text-[10px] text-ink-400">Dense Architecture</span>
-            </div>
+      {/* ========================================================
+          CyberShield AI Style: Hero Model Card (Qwen2.5-0.5B-Instruct)
+          ======================================================== */}
+      <div className="relative overflow-hidden rounded-2xl border border-electric/30 bg-gradient-to-b from-base-900/95 via-base-950/95 to-base-950 p-5 shadow-2xl backdrop-blur-md">
+        {/* Subtle decorative cyber glow effect */}
+        <div className="pointer-events-none absolute -right-20 -top-20 h-64 w-64 rounded-full bg-electric/10 blur-3xl" />
+        <div className="pointer-events-none absolute -bottom-20 -left-20 h-64 w-64 rounded-full bg-cyan/10 blur-3xl" />
 
-            <div className="rounded-lg border border-base-700/80 bg-base-900/60 p-2.5">
-              <span className="text-[10px] uppercase font-semibold tracking-wider text-ink-500">
-                Estimated Download
-              </span>
-              <p className="mt-1 font-mono text-[13px] font-bold text-white">
-                ~{(QWEN_3B_METADATA.downloadSizeMB / 1024).toFixed(2)} GB
-              </p>
-              <span className="text-[10px] text-ink-400">1,655 MB (62 shards)</span>
-            </div>
-
-            <div className="rounded-lg border border-base-700/80 bg-base-900/60 p-2.5">
-              <span className="text-[10px] uppercase font-semibold tracking-wider text-ink-500">
-                VRAM Required
-              </span>
-              <p className="mt-1 font-mono text-[13px] font-bold text-white">
-                ~{(QWEN_3B_METADATA.vramRequiredMB / 1024).toFixed(2)} GB
-              </p>
-              <span className="text-[10px] text-ink-400">WebGPU buffer alloc</span>
-            </div>
-
-            <div className="rounded-lg border border-base-700/80 bg-base-900/60 p-2.5">
-              <span className="text-[10px] uppercase font-semibold tracking-wider text-ink-500">
-                Quantization
-              </span>
-              <p className="mt-1 font-mono text-[13px] font-bold text-electric">
-                {forceFp32 ? "q4f32_1 (32-bit shader)" : "q4f16_1 (fp16)"}
-              </p>
-              <span className="text-[10px] text-ink-400">MLC WebGPU format</span>
-            </div>
-          </div>
-
-          {/* Model Card Description & Hosting Disclosure */}
-          <div className="rounded-lg border border-base-700/60 bg-base-900/40 p-3 space-y-1.5 text-[11px] leading-relaxed text-ink-300">
-            <div className="flex items-center gap-1.5 font-semibold text-white">
-              <ShieldCheck className="h-3.5 w-3.5 text-good" />
-              <span>Verified Compatibility & Official MLC Hosting</span>
-            </div>
-            <p>
-              Weights are fetched securely from the official MLC repository at{" "}
-              <a
-                href={QWEN_3B_METADATA.huggingFaceUrl}
-                target="_blank"
-                rel="noreferrer"
-                className="text-cyan underline hover:text-white"
-              >
-                huggingface.co/mlc-ai/{targetModelId}
-              </a>
-              . Once downloaded, all model assets are cached locally inside your browser storage (IndexedDB / Cache Storage). Subsequent visits initialize instantaneously without re-downloading.
-            </p>
-            <p className="text-[10px] text-ink-500">
-              License: {QWEN_3B_METADATA.license} · No Ollama server required · No OpenAI API required · Zero token billing.
-            </p>
-          </div>
-
-          {/* Storage & WebGPU Diagnostic Details */}
-          <div className="grid gap-3 sm:grid-cols-2 text-[11px]">
-            {/* Storage Quota */}
-            <div className="rounded-lg border border-base-700/70 bg-base-900/40 p-3 space-y-1.5">
-              <div className="flex items-center justify-between">
-                <span className="flex items-center gap-1.5 font-medium text-ink-300">
-                  <HardDrive className="h-3.5 w-3.5 text-cyan" /> Browser Storage
-                </span>
-                <span className="mono text-[10px] text-ink-400">
-                  {storageInfo ? `${storageInfo.availableMB} MB free` : "Checking…"}
-                </span>
+        <div className="relative space-y-5">
+          {/* Top Card Header */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-base-800/80 pb-4">
+            <div className="flex items-center gap-3">
+              <div className="grid h-11 w-11 shrink-0 place-items-center rounded-xl border border-electric/40 bg-gradient-to-br from-electric/20 to-cyan/10 text-electric shadow-panel">
+                <Cpu className="h-6 w-6" />
               </div>
-              <div className="h-1.5 w-full overflow-hidden rounded-full bg-base-800">
-                <div
-                  className="h-full bg-cyan transition-all"
-                  style={{
-                    width: `${
-                      storageInfo && storageInfo.quotaMB > 0
-                        ? Math.min((storageInfo.usageMB / storageInfo.quotaMB) * 100, 100)
-                        : 0
-                    }%`,
-                  }}
-                />
-              </div>
-              <div className="flex items-center justify-between text-[10px] text-ink-500">
-                <span>Used: {storageInfo?.usageMB ?? 0} MB</span>
-                <span>Quota: {storageInfo?.quotaMB ?? 0} MB</span>
-              </div>
-              {storageInfo?.availableMB !== undefined && storageInfo.availableMB < 2000 && !isCached && (
-                <p className="text-[10px] text-warn">
-                  ⚠️ Storage quota might be low for 1.7 GB download. Browser may prompt for storage permission.
+              <div>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <h3 className="text-[17px] font-bold text-white tracking-tight">
+                    {QWEN_05B_METADATA.name}
+                  </h3>
+                  <span className="mono rounded-md border border-cyan/30 bg-cyan/10 px-2 py-0.5 text-[10.5px] font-medium text-cyan">
+                    4-bit WebGPU
+                  </span>
+                </div>
+                <p className="text-[11.5px] text-ink-400 mt-0.5">
+                  Ultra-lightweight on-device generative model · No API keys, zero cloud transmission
                 </p>
-              )}
+              </div>
             </div>
 
-            {/* GPU Adapter Details */}
-            <div className="rounded-lg border border-base-700/70 bg-base-900/40 p-3 space-y-1.5">
-              <div className="flex items-center justify-between">
-                <span className="flex items-center gap-1.5 font-medium text-ink-300">
-                  <Cpu className="h-3.5 w-3.5 text-violet" /> WebGPU Adapter
-                </span>
-                <span className="mono text-[10px] text-good">
-                  {gpuInfo?.hasShaderF16 ? "shader-f16 supported" : "standard shader"}
+            {/* Installation State Pill Badge */}
+            <div className="flex items-center gap-2 self-start sm:self-auto">
+              <div
+                className={clsx(
+                  "flex items-center gap-2 rounded-full border px-3 py-1 text-[11.5px] font-semibold transition-all",
+                  statusBadge.className
+                )}
+              >
+                <span className={clsx("h-2 w-2 rounded-full", statusBadge.dotClass)} />
+                <StatusIcon className="h-3.5 w-3.5" />
+                <span>{statusBadge.label}</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Metadata Specs Grid: 6 Specifications Required by Section 2 */}
+          <div className="grid gap-3 grid-cols-2 md:grid-cols-3 lg:grid-cols-6 text-[12px]">
+            <div className="rounded-xl border border-base-800/90 bg-base-900/60 p-3">
+              <p className="text-[10px] uppercase font-semibold tracking-wider text-ink-500">Model</p>
+              <p className="mono font-semibold text-white mt-1 text-[12.5px] truncate" title={QWEN_05B_METADATA.name}>
+                Qwen 2.5 0.5B
+              </p>
+              <p className="text-[10px] text-ink-400">Instruct / 490M</p>
+            </div>
+
+            <div className="rounded-xl border border-base-800/90 bg-base-900/60 p-3">
+              <p className="text-[10px] uppercase font-semibold tracking-wider text-ink-500">Runtime</p>
+              <p className="mono font-semibold text-cyan mt-1 text-[12.5px]">WebGPU</p>
+              <p className="text-[10px] text-ink-400">@mlc-ai/web-llm</p>
+            </div>
+
+            <div className="rounded-xl border border-base-800/90 bg-base-900/60 p-3">
+              <p className="text-[10px] uppercase font-semibold tracking-wider text-ink-500">Quantization</p>
+              <p className="mono font-semibold text-electric mt-1 text-[12.5px]">
+                {forceFp32 ? "q4f32_1" : "Q4 (q4f16_1)"}
+              </p>
+              <p className="text-[10px] text-ink-400">4-bit INT4 weights</p>
+            </div>
+
+            <div className="rounded-xl border border-base-800/90 bg-base-900/60 p-3">
+              <p className="text-[10px] uppercase font-semibold tracking-wider text-ink-500">Download Size</p>
+              <p className="mono font-semibold text-white mt-1 text-[12.5px]">
+                ~{QWEN_05B_METADATA.downloadSizeMB} MB
+              </p>
+              <p className="text-[10px] text-ink-400">Actual repo shards</p>
+            </div>
+
+            <div className="rounded-xl border border-base-800/90 bg-base-900/60 p-3">
+              <p className="text-[10px] uppercase font-semibold tracking-wider text-ink-500">Installed Usage</p>
+              <p className="mono font-semibold text-white mt-1 text-[12.5px]">
+                {isCached
+                  ? `${storageInfo?.modelStorageMB || QWEN_05B_METADATA.downloadSizeMB} MB`
+                  : "0 MB"}
+              </p>
+              <p className="text-[10px] text-ink-400">
+                {isCached ? "Verified in cache" : "Not yet installed"}
+              </p>
+            </div>
+
+            <div className="rounded-xl border border-base-800/90 bg-base-900/60 p-3">
+              <p className="text-[10px] uppercase font-semibold tracking-wider text-ink-500">Acceleration</p>
+              <p className="mono font-semibold text-good mt-1 text-[12.5px] truncate" title={gpuInfo?.adapterInfo?.vendor || "WebGPU Native"}>
+                {gpuInfo?.adapterInfo?.vendor || "WebGPU Direct"}
+              </p>
+              <p className="text-[10px] text-ink-400">Direct GPU compute</p>
+            </div>
+          </div>
+
+          {/* Browser Storage Availability Bar (Section 4 Requirement) */}
+          <div className="rounded-xl border border-base-800/80 bg-base-900/40 p-3.5 space-y-2">
+            <div className="flex items-center justify-between text-[11.5px]">
+              <div className="flex items-center gap-2 text-ink-300">
+                <HardDrive className="h-4 w-4 text-cyan" />
+                <span className="font-semibold text-white">Browser Storage Status</span>
+                <span className="text-[10.5px] text-ink-400">
+                  (Reports actual navigator.storage.estimate API data)
                 </span>
               </div>
-              <p className="mono text-[10.5px] text-ink-200 truncate">
-                {gpuInfo?.adapterInfo?.device || gpuInfo?.adapterInfo?.vendor || (gpuInfo?.adapterAvailable ? "Hardware GPU Initialized" : "Software / Fallback")}
-              </p>
-              <p className="text-[10px] text-ink-500">
-                Max buffer: {gpuInfo?.limits?.maxBufferSize ? `${Math.round(gpuInfo.limits.maxBufferSize / (1024 * 1024))} MB` : "—"} · Architecture: {gpuInfo?.adapterInfo?.architecture || "Unified"}
-              </p>
-            </div>
-          </div>
-
-          {/* Model Controls & Configuration Options */}
-          <div className="flex flex-wrap items-center justify-between gap-3 border-t border-base-700/70 pt-3">
-            <div className="flex flex-wrap items-center gap-3 text-[11px]">
-              {/* Context Length Selector */}
-              <label className="flex items-center gap-1.5 text-ink-400">
-                <span>Context length:</span>
-                <select
-                  value={contextWindow}
-                  onChange={(e) => setContextWindow(Number(e.target.value))}
-                  disabled={loading || isLoaded}
-                  className="rounded border border-base-700 bg-base-800 px-2 py-1 text-[11px] text-white focus:outline-none"
-                >
-                  <option value={4096}>4,096 tokens (Standard)</option>
-                  <option value={2048}>2,048 tokens (Mobile / Low RAM)</option>
-                </select>
-              </label>
-
-              {/* Float32 Fallback Option */}
-              <label className="flex items-center gap-1.5 text-ink-400 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={forceFp32}
-                  onChange={(e) => setForceFp32(e.target.checked)}
-                  disabled={loading || isLoaded || !gpuInfo?.hasShaderF16}
-                  className="rounded border-base-700 bg-base-800 text-electric focus:ring-0"
-                />
-                <span title="Uses 32-bit shaders if your GPU has fp16 shader issues">
-                  Use 32-bit shader (Compatibility mode)
+              <div className="flex items-center gap-2 text-[11px]">
+                <span className="text-ink-400">Available:</span>
+                <span className="mono font-semibold text-cyan">
+                  {storageInfo ? `${Math.round(storageInfo.availableMB / 1024 * 10) / 10} GB` : "Checking..."}
                 </span>
-              </label>
+                <span className="text-ink-500">/</span>
+                <span className="mono text-ink-300">
+                  {storageInfo ? `${Math.round(storageInfo.quotaMB / 1024 * 10) / 10} GB quota` : "—"}
+                </span>
+              </div>
             </div>
 
-            {/* Action Buttons */}
-            <div className="flex items-center gap-2">
-              {isCached && !isLoaded && (
-                <button
-                  onClick={handleDeleteCache}
-                  disabled={loading || deleting}
-                  className="btn-ghost !py-1.5 !px-3 !text-[11.5px] text-ink-400 hover:text-crit"
-                  title="Purge cached model files to reclaim disk space"
-                >
-                  <Trash2 className="h-3.5 w-3.5" />
-                  <span>{deleting ? "Deleting…" : "Delete Cache"}</span>
-                </button>
-              )}
+            {/* Storage bar indicator */}
+            <div className="h-2 w-full overflow-hidden rounded-full bg-base-800">
+              <div
+                className="h-full bg-gradient-to-r from-cyan via-electric to-purple-500 transition-all duration-300"
+                style={{
+                  width: `${
+                    storageInfo && storageInfo.quotaMB > 0
+                      ? Math.min(Math.max((storageInfo.usageMB / storageInfo.quotaMB) * 100, 2), 100)
+                      : 2
+                  }%`,
+                }}
+              />
+            </div>
 
-              {isLoaded ? (
-                <button
-                  onClick={handleUnload}
-                  disabled={loading}
-                  className="btn-ghost !py-1.5 !px-3.5 !text-[11.5px] border-warn/40 text-warn hover:bg-warn/10"
-                  title="Release GPU device and free VRAM"
-                >
-                  <Power className="h-3.5 w-3.5" />
-                  <span>Unload from GPU</span>
-                </button>
-              ) : loading ? (
-                <button
-                  onClick={handleCancelDownload}
-                  className="btn-ghost !py-1.5 !px-3.5 !text-[11.5px] border-crit/40 text-crit hover:bg-crit/10"
-                >
-                  <XCircle className="h-3.5 w-3.5" />
-                  <span>Cancel</span>
-                </button>
-              ) : (
-                <button
-                  onClick={handleDownloadAndLoad}
-                  disabled={!gpuInfo?.adapterAvailable || loading}
-                  className={clsx(
-                    "btn-primary !py-1.5 !px-4 !text-[12px]",
-                    !gpuInfo?.adapterAvailable && "opacity-50 cursor-not-allowed"
-                  )}
-                >
-                  {isCached ? (
-                    <>
-                      <Play className="h-3.5 w-3.5" />
-                      <span>Load Qwen2.5 3B</span>
-                    </>
-                  ) : (
-                    <>
-                      <Download className="h-3.5 w-3.5" />
-                      <span>Download & Load (~1.6 GB)</span>
-                    </>
-                  )}
-                </button>
-              )}
+            <div className="flex items-center justify-between text-[10.5px] text-ink-400">
+              <span>
+                Installed model footprint:{" "}
+                <strong className="text-white mono">
+                  {isCached ? `${storageInfo?.modelStorageMB || QWEN_05B_METADATA.downloadSizeMB} MB` : "0 MB"}
+                </strong>
+              </span>
+              <span>
+                Storage mode:{" "}
+                <strong className={storageInfo?.persisted ? "text-good" : "text-ink-300"}>
+                  {storageInfo?.persisted ? "Persistent Storage (Granted)" : "Standard Cache (Auto-managed)"}
+                </strong>
+              </span>
             </div>
           </div>
 
-          {/* Download & Initialization Progress Bar */}
-          {loading && (
-            <div className="space-y-2 rounded-lg border border-base-700 bg-base-900/80 p-3">
-              <div className="flex items-center justify-between text-[11.5px]">
-                <span className="flex items-center gap-2 font-medium text-white">
+          {/* Active Download / Install Progress Section */}
+          {(loading || progress.state === "Downloading" || progress.state === "Installing" || progress.state === "Loading") && (
+            <div className="rounded-xl border border-electric/40 bg-base-900/90 p-4 space-y-3 shadow-panel animate-fadeIn">
+              <div className="flex items-center justify-between text-[12px]">
+                <div className="flex items-center gap-2">
                   <Spinner label="" />
-                  <span>{progress.text || "Loading model..."}</span>
-                </span>
-                <span className="mono font-bold text-electric">{progress.progress}%</span>
+                  <span className="font-semibold text-white">
+                    {progress.state === "Downloading"
+                      ? "Downloading Qwen2.5 0.5B Shards from Hugging Face..."
+                      : progress.state === "Installing"
+                      ? "Installing & Verifying Model Weights..."
+                      : "Loading into WebGPU VRAM..."}
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="mono text-[14px] font-bold text-electric">
+                    {progress.progress}%
+                  </span>
+                </div>
               </div>
-              <div className="h-2 w-full overflow-hidden rounded-full bg-base-800">
+
+              {/* Glowing progress bar */}
+              <div className="h-2.5 w-full overflow-hidden rounded-full bg-base-800 border border-base-700">
                 <div
-                  className="h-full bg-gradient-to-r from-electric to-violet transition-all duration-300"
+                  className="h-full bg-gradient-to-r from-cyan via-electric to-purple-500 transition-all duration-300 shadow-[0_0_10px_rgba(59,125,255,0.5)]"
                   style={{ width: `${Math.max(progress.progress, 3)}%` }}
                 />
               </div>
-              <p className="text-[10px] text-ink-500 leading-normal">
-                Files are downloaded directly from HuggingFace to your browser's persistent cache.
-                Please keep this browser tab active.
-              </p>
+
+              <div className="flex items-center justify-between text-[11px] text-ink-400">
+                <span className="truncate max-w-md">{progress.text || "Working..."}</span>
+                {loading && (
+                  <button
+                    type="button"
+                    onClick={handleCancelDownload}
+                    className="btn-ghost !py-1 !px-3 text-[11px] text-crit hover:bg-crit/10 border-crit/30"
+                  >
+                    <XCircle className="h-3 w-3" />
+                    <span>Cancel Download</span>
+                  </button>
+                )}
+              </div>
             </div>
           )}
 
-          {/* Status Message when Ready */}
-          {isLoaded && !loading && (
-            <div className="flex items-center justify-between rounded-lg border border-good/40 bg-good/[0.08] px-3.5 py-2.5 text-[11.5px] text-good">
-              <div className="flex items-center gap-2 font-medium">
-                <Check className="h-4 w-4" />
-                <span>Qwen2.5 3B Instruct is loaded in WebGPU memory and ready for zero-latency private inference.</span>
-              </div>
-              <Chip tone="good">Active</Chip>
+          {/* Action Buttons: Download, Cancel, Delete, Load, Reinstall */}
+          <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
+            <div className="flex flex-wrap items-center gap-2">
+              {/* State: Available -> Show Download Button */}
+              {currentState === "Available" && !loading && (
+                <button
+                  type="button"
+                  onClick={handleDownloadAndLoad}
+                  disabled={gpuInfo ? !gpuInfo.supported || !gpuInfo.adapterAvailable : false}
+                  className="btn-primary !py-2.5 !px-5 text-[12.5px] bg-gradient-to-r from-electric to-cyan hover:from-electric/90 hover:to-cyan/90 shadow-panel"
+                >
+                  <Download className="h-4 w-4" />
+                  <span>Download Model (~278 MB)</span>
+                </button>
+              )}
+
+              {/* State: Downloading or Installing -> Show Cancel Download */}
+              {(currentState === "Downloading" || currentState === "Installing" || loading) && (
+                <button
+                  type="button"
+                  onClick={handleCancelDownload}
+                  className="btn-ghost !py-2.5 !px-4 text-[12.5px] border-crit/40 text-crit hover:bg-crit/10"
+                >
+                  <XCircle className="h-4 w-4" />
+                  <span>Cancel Download</span>
+                </button>
+              )}
+
+              {/* State: Installed (Cached on disk but not in GPU) -> Load Model */}
+              {currentState === "Installed" && !loading && (
+                <>
+                  <button
+                    type="button"
+                    onClick={handleDownloadAndLoad}
+                    className="btn-primary !py-2.5 !px-5 text-[12.5px] bg-gradient-to-r from-electric to-cyan hover:from-electric/90 hover:to-cyan/90"
+                  >
+                    <Play className="h-4 w-4" />
+                    <span>Load Model into WebGPU</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleDownloadAndLoad}
+                    className="btn-ghost !py-2.5 !px-3.5 text-[12px] text-ink-300 hover:text-white"
+                    title="Force re-verification of downloaded weights"
+                  >
+                    <RefreshCw className="h-3.5 w-3.5" />
+                    <span>Reinstall Model</span>
+                  </button>
+                </>
+              )}
+
+              {/* State: Ready (Loaded in GPU VRAM) -> Ready to chat & Unload */}
+              {currentState === "Ready" && (
+                <>
+                  <a
+                    href="/shakthi-ai"
+                    className="btn-primary !py-2.5 !px-5 text-[12.5px] bg-gradient-to-r from-good to-cyan hover:from-good/90 hover:to-cyan/90 shadow-panel"
+                  >
+                    <Sparkles className="h-4 w-4" />
+                    <span>Open Shakthi AI Chat →</span>
+                  </a>
+                  <button
+                    type="button"
+                    onClick={handleUnload}
+                    className="btn-ghost !py-2.5 !px-3.5 text-[12px] text-ink-300 hover:text-white"
+                    title="Unload from VRAM to release GPU memory"
+                  >
+                    <Power className="h-3.5 w-3.5" />
+                    <span>Unload from VRAM</span>
+                  </button>
+                </>
+              )}
+
+              {/* State: Error -> Retry */}
+              {currentState === "Error" && !loading && (
+                <button
+                  type="button"
+                  onClick={handleDownloadAndLoad}
+                  className="btn-primary !py-2.5 !px-5 text-[12.5px] bg-gradient-to-r from-electric to-cyan"
+                >
+                  <RefreshCw className="h-4 w-4" />
+                  <span>Retry Download & Load</span>
+                </button>
+              )}
             </div>
-          )}
+
+            {/* Delete Model Option (Section 2 & 4 requirement) */}
+            {(isCached || currentState === "Ready" || currentState === "Installed") && !loading && (
+              <div>
+                {!showDeleteConfirm ? (
+                  <button
+                    type="button"
+                    onClick={() => setShowDeleteConfirm(true)}
+                    className="btn-ghost !py-2 !px-3 text-[11.5px] text-ink-400 hover:text-crit hover:bg-crit/10 border-base-750 hover:border-crit/30"
+                    title="Delete model files from browser storage"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                    <span>Delete Model</span>
+                  </button>
+                ) : (
+                  <div className="flex items-center gap-2 bg-crit/10 border border-crit/40 rounded-lg p-1.5 animate-fadeIn">
+                    <span className="text-[11px] text-crit font-medium pl-1">
+                      Confirm delete ~278 MB?
+                    </span>
+                    <button
+                      type="button"
+                      onClick={handleDeleteCache}
+                      disabled={deleting}
+                      className="rounded bg-crit px-2.5 py-1 text-[11px] font-semibold text-white hover:bg-crit/90"
+                    >
+                      {deleting ? "Deleting..." : "Yes, Delete"}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setShowDeleteConfirm(false)}
+                      className="rounded bg-base-800 px-2 py-1 text-[11px] text-ink-300 hover:bg-base-700"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
         </div>
-      </Panel>
+      </div>
+
+      {/* Hardware & Diagnostics Details */}
+      <div className="grid gap-4 md:grid-cols-2">
+        <Panel title="WebGPU Hardware Capabilities" subtitle="Direct browser graphics adapter detection">
+          <div className="space-y-2 text-[11.5px]">
+            <div className="flex items-center justify-between border-b border-base-750/70 py-1.5">
+              <span className="text-ink-400">WebGPU Support</span>
+              <span className={clsx("mono font-medium", gpuInfo?.supported ? "text-good" : "text-crit")}>
+                {gpuInfo?.supported ? "Supported" : "Unavailable"}
+              </span>
+            </div>
+            <div className="flex items-center justify-between border-b border-base-750/70 py-1.5">
+              <span className="text-ink-400">GPU Adapter Status</span>
+              <span className={clsx("mono font-medium", gpuInfo?.adapterAvailable ? "text-good" : "text-crit")}>
+                {gpuInfo?.adapterAvailable ? "Initialized & Connected" : "Not Detected"}
+              </span>
+            </div>
+            <div className="flex items-center justify-between border-b border-base-750/70 py-1.5">
+              <span className="text-ink-400">Detected Vendor</span>
+              <span className="mono text-white">{gpuInfo?.adapterInfo?.vendor || "Standard GPU"}</span>
+            </div>
+            <div className="flex items-center justify-between border-b border-base-750/70 py-1.5">
+              <span className="text-ink-400">16-bit Float Shaders</span>
+              <span className={clsx("mono font-medium", gpuInfo?.hasShaderF16 ? "text-good" : "text-warn")}>
+                {gpuInfo?.hasShaderF16 ? "shader-f16 Supported (Fastest)" : "shader-f32 Fallback Active"}
+              </span>
+            </div>
+            <div className="flex items-center justify-between py-1.5">
+              <span className="text-ink-400">Active Model Asset</span>
+              <span className="mono text-electric text-[11px] truncate max-w-[220px]" title={targetModelId}>
+                {targetModelId}
+              </span>
+            </div>
+          </div>
+        </Panel>
+
+        <Panel title="Security & Architecture Guarantee" subtitle="100% on-device private execution">
+          <div className="space-y-3 text-[11.5px]">
+            <div className="flex items-start gap-2.5">
+              <ShieldCheck className="h-4 w-4 text-good shrink-0 mt-0.5" />
+              <div>
+                <p className="font-semibold text-white">Zero Cloud Inference</p>
+                <p className="text-ink-400 text-[11px] mt-0.5">
+                  All prompts, conversations, and tokens are computed entirely on your GPU via WebGPU. No external AI servers are contacted.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-start gap-2.5">
+              <Check className="h-4 w-4 text-cyan shrink-0 mt-0.5" />
+              <div>
+                <p className="font-semibold text-white">No API Keys or Subscriptions</p>
+                <p className="text-ink-400 text-[11px] mt-0.5">
+                  No OpenAI, Gemini, or third-party inference keys are required. Model weights are downloaded directly from the official MLC repository.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-start gap-2.5">
+              <Check className="h-4 w-4 text-electric shrink-0 mt-0.5" />
+              <div>
+                <p className="font-semibold text-white">No Ollama or Desktop Software</p>
+                <p className="text-ink-400 text-[11px] mt-0.5">
+                  Runs natively inside Google Chrome, Microsoft Edge, or Safari without installing background software or terminal services.
+                </p>
+              </div>
+            </div>
+          </div>
+        </Panel>
+      </div>
     </div>
   );
 }

@@ -30,7 +30,7 @@ a relational database and trained model artifacts.
 | Energy intelligence | Consumption per heat/kg/day/week/month, waste detection, transparent efficiency score, CO₂ estimates |
 | Anomaly detection | `IsolationForest` + explicit sensor-quality rules, three severities, acknowledgement workflow |
 | Heat history | Server-side filtering, pagination, KNN comparison, per-heat PDF/CSV reports |
-| SHAKTHI AI | Browser Local AI powered by Qwen2.5 3B Instruct via @mlc-ai/web-llm (WebGPU), 100% private on-device execution |
+| SHAKTHI AI | Browser Local AI powered by Qwen2.5-0.5B-Instruct via @mlc-ai/web-llm (WebGPU), 100% private on-device execution |
 | Self-learning engine | Prediction/actual pairing, live error tracking, guarded retraining with data validation |
 | Reports | 7 report types as PDF (reportlab) or CSV |
 | Security | Pydantic validation, CORS allowlist, per-IP rate limiting, upload checks, read-only AI tools |
@@ -41,7 +41,7 @@ a relational database and trained model artifacts.
 
 ```
 React 18 + TS + Vite + Tailwind + Recharts
-├── @mlc-ai/web-llm ────────────► WebGPU local inference (Qwen2.5 3B Instruct)
+├── @mlc-ai/web-llm ────────────► WebGPU local inference (Qwen2.5-0.5B-Instruct)
 └── /api (Vite proxy in dev, VITE_API_BASE_URL in prod)
     ▼
     FastAPI (Python 3.12)

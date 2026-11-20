@@ -1,7 +1,7 @@
 """AI inference and status service for ForgeOptima AI.
 
 Primary Architecture:
-- Browser Local AI with Qwen2.5 3B Instruct executed directly on user WebGPU via @mlc-ai/web-llm.
+- Browser Local AI with Qwen2.5-0.5B-Instruct executed directly on user WebGPU via @mlc-ai/web-llm.
 - 100% private, zero-latency on-device inference.
 - Zero external API dependencies (no external cloud APIs, no Ollama requirement).
 - Built-in grounded industrial domain engine as instant server-side fallback.
@@ -55,7 +55,7 @@ usage_tracker = AIUsageTracker()
 
 def detect_provider(override_key: Optional[str] = None) -> tuple[str, str, Optional[str], Optional[str]]:
     """Resolves primary Browser Local AI model configuration."""
-    return "webllm", "Qwen2.5-3B-Instruct", None, "browser://webgpu"
+    return "webllm", "Qwen2.5-0.5B-Instruct", None, "browser://webgpu"
 
 
 async def check_provider_status() -> dict[str, Any]:
@@ -67,10 +67,10 @@ async def check_provider_status() -> dict[str, Any]:
         "model": model,
         "base_url_configured": True,
         "latency_ms": 0.0,
-        "detail": "Online · Qwen2.5 3B Instruct running via WebLLM WebGPU directly in the browser.",
+        "detail": "Online · Qwen2.5-0.5B-Instruct running via WebLLM WebGPU directly in the browser.",
         "models_available": [
-            "Qwen2.5-3B-Instruct-q4f16_1-MLC",
-            "Qwen2.5-3B-Instruct-q4f32_1-MLC",
+            "Qwen2.5-0.5B-Instruct-q4f16_1-MLC",
+            "Qwen2.5-0.5B-Instruct-q4f32_1-MLC",
         ],
         "free_tier": True,
         "checked_at": datetime.now(timezone.utc),

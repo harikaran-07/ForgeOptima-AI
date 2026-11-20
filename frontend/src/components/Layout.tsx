@@ -36,7 +36,7 @@ const NAV = [
   { to: "/history", label: "Heat History", icon: History },
   { to: "/shakthi-ai", label: "SHAKTHI AI", icon: Sparkles },
   { to: "/reports", label: "Reports & Analytics", icon: FileText },
-  { to: "/settings", label: "Settings", icon: SettingsIcon },
+  { to: "/settings", label: "AI Model Settings", icon: SettingsIcon },
 ];
 
 function Clock() {
@@ -194,7 +194,7 @@ export default function Layout() {
               </Chip>
               <Chip tone="cyan">
                 <Sparkles className="h-3 w-3 text-cyan" />
-                SHAKTHI AI · Qwen2.5 3B (WebGPU)
+                SHAKTHI AI · Qwen2.5 0.5B (WebGPU)
               </Chip>
               {status.data && (
                 <span className="mono hidden text-[12px] text-ink-200 md:inline">
