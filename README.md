@@ -311,20 +311,11 @@ cd backend && alembic upgrade head
 `alembic/versions/0001_initial_schema.py` is the baseline revision (generated from the model metadata so
 it cannot drift); later changes use `alembic revision --autogenerate` and are reviewed before applying.
 
-### 12.2 Backend → Render
-* Build: `pip install -r backend/requirements.txt`
-* Start: `uvicorn app.main:app --host 0.0.0.0 --port $PORT` (root directory `backend`)
-* Env: `DATABASE_URL`, `CORS_ORIGINS=https://your-app.vercel.app`, `OLLAMA_BASE_URL`, `OLLAMA_MODEL`,
-  `ENVIRONMENT=production`
-* First deploy: run `python -m scripts.seed` once (Render shell), or run `alembic upgrade head` and import
-  your own CSV through the API.
-* Model artifacts must be present at runtime: either run the seed/training step in the build or commit
-  `backend/artifacts/` (they are small: ~22 MB) — otherwise predictions return the flagged baseline.
-
-### 12.3 Frontend → Vercel
-* Root directory `frontend`, framework Vite, build `npm run build`, output `dist`
-* Env: `VITE_API_BASE_URL=https://your-backend.onrender.com`
-* Add the Vercel domain to the backend's `CORS_ORIGINS`.
+### 12.2 Unified Deployment → Vercel
+* Root directory `frontend` (or repository root), framework Vite, build `npm run build`, output `dist`
+* Serverless API functions: `frontend/api/` (Node.js ES Modules)
+* Database: Managed PostgreSQL (Vercel Postgres / Neon / Supabase) via `POSTGRES_URL` or `DATABASE_URL`
+* The entire platform (frontend and API) deploys atomically under one domain with zero cold-start latency.
 
 ### 12.4 SHAKTHI AI in production
 Because SHAKTHI AI runs **directly inside the client's browser using WebLLM and WebGPU**, there are **zero expensive GPU server costs or Ollama hosting infrastructure required**. Any user visiting the site on a modern browser (Chrome 113+, Edge 113+, Safari 18+) can run Qwen2.5 3B with WebGPU hardware acceleration. The backend only serves the lightweight FastAPI endpoints, SQLite/PostgreSQL database, and scikit-learn models.

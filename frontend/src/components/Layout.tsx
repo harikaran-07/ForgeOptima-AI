@@ -25,7 +25,7 @@ import { Anomaly, FurnaceStatus } from "../lib/types";
 import { nf } from "../lib/format";
 import { Chip, StatusChip } from "./ui";
 import { isEngineReady } from "../services/ai/modelManager";
-import { RenderBackendStatusBadge } from "./RenderBackendStatus";
+import { VercelBackendStatusBadge } from "./VercelBackendStatus";
 
 const NAV = [
   { to: "/", label: "Dashboard (Overview)", icon: LayoutDashboard, end: true },
@@ -271,8 +271,8 @@ export default function Layout() {
           </div>
 
           <div className="ml-auto flex items-center gap-2">
-            {/* Live Render Backend Status Badge */}
-            <RenderBackendStatusBadge />
+            {/* Live Vercel Serverless API Status Badge */}
+            <VercelBackendStatusBadge />
 
             <div className="hidden items-center gap-2 sm:flex">
               {/* SAKTHI COPILOT Model Status */}

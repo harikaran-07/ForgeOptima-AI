@@ -270,30 +270,30 @@ export default function Overview() {
       </PageHeader>
 
       {fetchError && !serverData && (
-        <div className="rounded-xl border border-warn/30 bg-gradient-to-r from-base-900 via-base-900 to-warn/[0.04] p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-panel">
+        <div className="rounded-xl border border-emerald/30 bg-gradient-to-r from-base-900 via-base-900 to-emerald/[0.04] p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-panel">
           <div className="space-y-1">
             <div className="flex items-center gap-2">
               <span className="relative flex h-2 w-2">
-                <span className="relative inline-flex h-2 w-2 rounded-full bg-warn" />
+                <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald" />
               </span>
               <p className="text-[12.5px] font-semibold text-white">
-                Render Backend Status: Standby / Cold-Start
+                Offline Physics Grounding Active
               </p>
-              <span className="rounded bg-warn/15 px-2 py-0.5 text-[10px] font-bold text-warn">
-                forgeoptima-ai.onrender.com
+              <span className="rounded bg-emerald/15 px-2 py-0.5 text-[10px] font-bold text-emerald">
+                Vercel Functions
               </span>
             </div>
             <p className="text-[11.5px] text-ink-300 leading-relaxed">
-              Displaying physically-grounded industrial telemetry baseline. The dashboard, all metallurgical KPI cards, and browser-local Sakthi Copilot WebGPU AI remain fully functional on your device without interruption.
+              Displaying physically-grounded industrial telemetry baseline. The dashboard, all metallurgical KPI cards, and browser-local Sakthi Copilot WebGPU AI operate continuously on your device.
             </p>
           </div>
           <button
             onClick={() => reload()}
-            className="btn-ghost !py-1.5 !px-3.5 text-[12px] text-ink-200 hover:text-white shrink-0 border-warn/40 hover:border-warn flex items-center gap-1.5"
-            title="Recheck and wake Render backend instance"
+            className="btn-ghost !py-1.5 !px-3.5 text-[12px] text-ink-200 hover:text-white shrink-0 border-emerald/40 hover:border-emerald flex items-center gap-1.5"
+            title="Refresh telemetry stream"
           >
             <RefreshCw className="h-3.5 w-3.5" />
-            <span>Wake / Recheck Backend</span>
+            <span>Refresh Telemetry</span>
           </button>
         </div>
       )}

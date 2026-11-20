@@ -115,8 +115,8 @@ export function useFetch<T>(path: string | null, options?: { pollMs?: number; de
           }
 
           const isNetwork = err instanceof TypeError && (err.message.includes("fetch") || err.message.includes("Network"));
-          const message = isNetwork && BASE.includes("onrender.com")
-            ? "Cannot reach the backend on Render. If the server is waking up from sleep, please wait 30–60 seconds and refresh."
+          const message = isNetwork
+            ? "Cannot reach the API. Retrying connection..."
             : err instanceof Error ? err.message : "Unexpected error";
           setState((s) => ({
             data: s.data || (fallback ? (fallback as T) : null),

@@ -33,7 +33,7 @@ class Settings(BaseSettings):
     # --- Database ----------------------------------------------------------
     # Local development defaults to SQLite so the app runs with zero setup.
     # Set DATABASE_URL=postgresql+psycopg://user:pass@host:5432/forgeoptima
-    # for PostgreSQL (production / Render).
+    # for PostgreSQL (production / managed PostgreSQL).
     database_url: str = f"sqlite:///{(BACKEND_DIR / 'forgeoptima.db').as_posix()}"
     sql_echo: bool = False
 

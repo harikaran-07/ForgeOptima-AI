@@ -260,10 +260,7 @@ export async function streamChat(
     });
   } catch {
     if (signal?.aborted) return;
-    const isRender = BASE.includes("onrender.com");
-    const errMsg = isRender
-      ? "Connecting to ForgeOptima AI backend on Render... The free server may be waking up from sleep (typically 30–50 seconds). Please retry in a moment."
-      : "Could not connect to ForgeOptima backend server. Please verify the service is running.";
+    const errMsg = "Connecting to ForgeOptima AI API... Please verify your network connection and retry.";
     onEvent({ type: "start", conversation_id: conversationId || Date.now() });
     onEvent({ type: "delta", text: `⚠️ **Connection Notice:**\n\n${errMsg}` });
     onEvent({ type: "done" });
