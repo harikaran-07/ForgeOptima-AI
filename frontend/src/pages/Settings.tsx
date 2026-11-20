@@ -124,7 +124,7 @@ export default function Settings() {
       <PageHeader
         eyebrow="On-Device Intelligence"
         title="AI Model Settings"
-        description="Shakthi AI runs entirely on your device using WebGPU. No cloud AI, no API key and no external AI server."
+        description="Sakthi Copilot runs entirely on your device using WebGPU. No cloud AI, no API key and no external AI server."
       >
         <Chip tone={isLocalLoaded ? "good" : isLocalCached ? "cyan" : "warn"}>
           Qwen 2.5 0.5B {isLocalLoaded ? "Ready in GPU" : isLocalCached ? "Installed" : "Available"}

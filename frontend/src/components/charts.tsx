@@ -15,20 +15,24 @@ import {
 } from "recharts";
 
 const AXIS_STYLE = {
-  stroke: "#28374F",
-  tick: { fill: "#7688A3", fontSize: 10 },
+  stroke: "#24513F",
+  tick: { fill: "#9CB8AA", fontSize: 10 },
   tickLine: false,
-  axisLine: { stroke: "#1D2A40" },
+  axisLine: { stroke: "#1A352C" },
 } as const;
 
 export const CHART_COLORS = {
-  blue: "#3B7DFF",
-  cyan: "#22D3EE",
-  violet: "#8B7CF6",
-  green: "#34D399",
-  amber: "#FBBF24",
-  red: "#F87171",
-  slate: "#5A6B85",
+  emerald: "#10B981",
+  mint: "#34D399",
+  teal: "#14B8A6",
+  deepEmerald: "#064E3B",
+  blue: "#10B981",    // Emerald Green
+  cyan: "#34D399",    // Bright Mint
+  violet: "#14B8A6",  // Muted Teal
+  green: "#10B981",   // Emerald
+  amber: "#FBBF24",   // Warning Amber
+  red: "#F87171",     // Error Red
+  slate: "#4D7362",   // Muted Emerald Slate
 };
 
 interface TipPayload {
@@ -100,10 +104,10 @@ export function TrendChart({
                 </linearGradient>
               ))}
           </defs>
-          <CartesianGrid stroke="#162134" strokeDasharray="3 4" vertical={false} />
+          <CartesianGrid stroke="#1A352C" strokeDasharray="3 4" vertical={false} />
           <XAxis dataKey={xKey} {...AXIS_STYLE} unit={xUnit ? ` ${xUnit}` : undefined} />
           <YAxis {...AXIS_STYLE} width={48} unit={yUnit ? ` ${yUnit}` : undefined} domain={domain} />
-          <Tooltip content={<ChartTip suffix={yUnit} labelPrefix={`t = `} />} cursor={{ stroke: "#28374F" }} />
+          <Tooltip content={<ChartTip suffix={yUnit} labelPrefix={`t = `} />} cursor={{ stroke: "#2E644E" }} />
           {reference?.map((ref) => (
             <ReferenceLine
               key={ref.label}
@@ -174,10 +178,10 @@ export function MiniBarChart({
     <div style={{ width: "100%", height }}>
       <ResponsiveContainer>
         <BarChart data={data} margin={{ top: 8, right: 8, bottom: 0, left: -18 }}>
-          <CartesianGrid stroke="#162134" strokeDasharray="3 4" vertical={false} />
+          <CartesianGrid stroke="#1A352C" strokeDasharray="3 4" vertical={false} />
           <XAxis dataKey={xKey} {...AXIS_STYLE} interval={0} angle={0} height={30} />
           <YAxis {...AXIS_STYLE} width={46} unit={yUnit ? ` ${yUnit}` : undefined} />
-          <Tooltip content={<ChartTip suffix={yUnit} />} cursor={{ fill: "rgba(59,125,255,0.06)" }} />
+          <Tooltip content={<ChartTip suffix={yUnit} />} cursor={{ fill: "rgba(16,185,129,0.06)" }} />
           <Legend
             verticalAlign="top"
             height={24}
@@ -221,7 +225,7 @@ export function AreaOnly({
               <stop offset="100%" stopColor={color} stopOpacity={0.02} />
             </linearGradient>
           </defs>
-          <CartesianGrid stroke="#162134" strokeDasharray="3 4" vertical={false} />
+          <CartesianGrid stroke="#1A352C" strokeDasharray="3 4" vertical={false} />
           <XAxis dataKey={xKey} {...AXIS_STYLE} />
           <YAxis {...AXIS_STYLE} width={46} unit={yUnit ? ` ${yUnit}` : undefined} />
           <Tooltip content={<ChartTip suffix={yUnit} />} />

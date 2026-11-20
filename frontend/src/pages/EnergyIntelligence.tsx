@@ -145,7 +145,7 @@ export default function EnergyIntelligence() {
             yUnit="kWh"
             height={250}
             series={[
-              { key: "energy_kwh", name: "Energy (kWh)", color: "#3B7DFF", area: true },
+              { key: "energy_kwh", name: "Energy (kWh)", color: "#10B981", area: true },
               { key: "co2_kg", name: "CO₂ (kg, est.)", color: "#FBBF24" },
             ]}
           />
@@ -155,7 +155,7 @@ export default function EnergyIntelligence() {
               xKey="label"
               yUnit="kWh/kg"
               height={160}
-              series={[{ key: "energy_per_kg", name: "Specific energy", color: "#22D3EE" }]}
+              series={[{ key: "energy_per_kg", name: "Specific energy", color: "#34D399" }]}
             />
           </div>
         </Panel>

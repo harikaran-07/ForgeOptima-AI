@@ -272,7 +272,7 @@ export default function LiveMonitoring() {
                     step={1}
                     value={config.speed_multiplier}
                     onChange={(e) => setConfig({ ...config, speed_multiplier: Number(e.target.value) })}
-                    className="w-full accent-[#3B7DFF]"
+                    className="w-full accent-[#10B981]"
                   />
                 </Field>
 
@@ -349,8 +349,8 @@ export default function LiveMonitoring() {
                     yUnit="°C"
                     height={230}
                     series={[
-                      { key: "temperature_c", name: "Temperature", color: "#22D3EE", area: true },
-                      { key: "power_kw", name: "Power (kW)", color: "#3B7DFF" },
+                      { key: "temperature_c", name: "Temperature", color: "#10B981", area: true },
+                      { key: "power_kw", name: "Power (kW)", color: "#34D399" },
                     ]}
                   />
                 ) : (

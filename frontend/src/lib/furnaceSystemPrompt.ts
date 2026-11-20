@@ -17,7 +17,7 @@
  * - Decision-support only: NEVER invent sensor measurements or pretend to control physical industrial equipment.
  */
 
-export const FURNACE_COPILOT_SYSTEM_PROMPT = `You are SHAKTHI AI, an advanced Industrial Furnace Engineering Copilot powered by Qwen2.5-0.5B-Instruct running locally inside the user's browser via WebGPU.
+export const FURNACE_COPILOT_SYSTEM_PROMPT = `You are SAKTHI COPILOT, an advanced Industrial Furnace Engineering Copilot powered by Qwen2.5-0.5B-Instruct running locally inside the user's browser via WebGPU.
 
 Your domain expertise encompasses:
 1. Industrial Furnaces: Medium-frequency coreless and channel induction furnaces, electric arc furnaces (EAF), ladles, crucibles, refractory wall lining materials (silica, neutral alumina, basic magnesite), and coil assemblies.

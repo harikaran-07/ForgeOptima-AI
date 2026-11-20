@@ -241,7 +241,7 @@ export default function Overview() {
   const copyExecutiveSummary = () => {
     if (!aiAnalysis?.executive_summary) return;
     const s = aiAnalysis.executive_summary;
-    const txt = `# SHAKTHI AI - EXECUTIVE SUMMARY\nFurnace: ${kpis.active_furnace} | Heat: ${kpis.active_heat_id}\n\n${s.summary}\n\nObservations:\n${s.observations.map((o, i) => `${i + 1}. ${o}`).join("\n")}\n\nRecommendations:\n${s.recommendations.map((r, i) => `${i + 1}. [${r.priority}] ${r.action} (${r.reason})`).join("\n")}`;
+    const txt = `# SAKTHI COPILOT - EXECUTIVE SUMMARY\nFurnace: ${kpis.active_furnace} | Heat: ${kpis.active_heat_id}\n\n${s.summary}\n\nObservations:\n${s.observations.map((o, i) => `${i + 1}. ${o}`).join("\n")}\n\nRecommendations:\n${s.recommendations.map((r, i) => `${i + 1}. [${r.priority}] ${r.action} (${r.reason})`).join("\n")}`;
     navigator.clipboard.writeText(txt);
     setCopiedSummary(true);
     setTimeout(() => setCopiedSummary(false), 2000);
@@ -276,7 +276,7 @@ export default function Overview() {
         </Notice>
       )}
 
-      {/* SECTION 2A: SHAKTHI AI – EXECUTIVE SUMMARY */}
+      {/* SECTION 2A: SAKTHI COPILOT INSIGHTS */}
       <section className="rounded-xl border border-electric/30 bg-gradient-to-r from-base-900 via-base-900/95 to-electric/5 p-5 shadow-lg relative overflow-hidden">
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-base-750 pb-3 mb-4">
           <div className="flex items-center gap-2.5">
@@ -286,10 +286,10 @@ export default function Overview() {
             <div>
               <div className="flex items-center gap-2">
                 <h2 className="text-[14px] font-bold uppercase tracking-wider text-white">
-                  SHAKTHI AI – EXECUTIVE SUMMARY
+                  SAKTHI COPILOT INSIGHTS
                 </h2>
                 <span className="rounded bg-electric/20 px-2 py-0.5 text-[10px] font-semibold text-electric uppercase tracking-wide">
-                  Autonomous Metallurgy
+                  Your Intelligent Industrial Furnace Copilot
                 </span>
               </div>
               <p className="text-[11px] text-ink-400 mt-0.5 flex items-center gap-2">
@@ -497,15 +497,15 @@ export default function Overview() {
             yUnit="°C"
             height={240}
             series={[
-              { key: "temperature_c", name: "Temperature", color: "#22D3EE", area: true },
-              { key: "target_c", name: "Target", color: "#8B7CF6", dashed: true },
+              { key: "temperature_c", name: "Temperature", color: "#10B981", area: true },
+              { key: "target_c", name: "Target", color: "#34D399", dashed: true },
             ]}
-            reference={[{ value: progress.target_temp_c, label: "TARGET", color: "#5A6B85" }]}
+            reference={[{ value: progress.target_temp_c, label: "TARGET", color: "#24513F" }]}
           />
         </Panel>
 
         <Panel
-          title="SHAKTHI AI – Performance Analysis"
+          title="SAKTHI COPILOT – Performance Analysis"
           subtitle="Evaluation of current heat vs historical decile benchmarks"
           action={
             <span className="rounded bg-good/15 px-1.5 py-0.5 text-[9.5px] font-semibold text-good">
@@ -546,13 +546,13 @@ export default function Overview() {
         </Panel>
       </section>
 
-      {/* SECTION 2D: SHAKTHI AI RECOMMENDATIONS */}
+      {/* SECTION 2D: SAKTHI COPILOT RECOMMENDATIONS */}
       <section className="space-y-3">
         <div className="flex items-center justify-between">
           <div>
             <h2 className="text-[13px] font-bold uppercase tracking-wider text-ink-200 flex items-center gap-2">
               <ShieldCheck className="h-4 w-4 text-good" />
-              SHAKTHI AI RECOMMENDATIONS · Engineering Review
+              SAKTHI COPILOT RECOMMENDATIONS · Engineering Review
             </h2>
             <p className="text-[11px] text-ink-400">
               Evidence-based operational suggestions. Grounded in live sensors — decision support only.
@@ -641,7 +641,7 @@ export default function Overview() {
             xKey="label"
             yUnit="kWh"
             height={200}
-            series={[{ key: "energy_kwh", name: "Energy", color: "#8B7CF6" }]}
+            series={[{ key: "energy_kwh", name: "Energy", color: "#10B981" }]}
           />
         </Panel>
 
@@ -655,8 +655,8 @@ export default function Overview() {
             yUnit="min"
             height={200}
             series={[
-              { key: "actual_min", name: "Actual", color: "#22D3EE" },
-              { key: "predicted_min", name: "Predicted", color: "#8B7CF6" },
+              { key: "actual_min", name: "Actual", color: "#10B981" },
+              { key: "predicted_min", name: "Predicted", color: "#34D399" },
             ]}
           />
         </Panel>

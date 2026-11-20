@@ -26,6 +26,8 @@ export default function App() {
         <Route path="/history" element={<HeatHistory />} />
         <Route path="/history/:heatId" element={<HeatHistory />} />
         <Route path="/shakthi-ai" element={<ShakthiAI />} />
+        <Route path="/sakthi-copilot" element={<ShakthiAI />} />
+        <Route path="/copilot" element={<ShakthiAI />} />
         <Route path="/reports" element={<Reports />} />
         <Route path="/settings" element={<Settings />} />
         <Route path="/ai-settings" element={<Settings />} />

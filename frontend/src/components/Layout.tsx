@@ -6,13 +6,14 @@ import {
   Bell,
   BrainCircuit,
   ChevronRight,
-  Command,
   FileText,
   Flame,
   Gauge,
   History,
   LayoutDashboard,
   Menu,
+  PanelLeftClose,
+  PanelLeftOpen,
   Settings as SettingsIcon,
   ShieldAlert,
   Sparkles,
@@ -24,6 +25,7 @@ import { useFetch } from "../hooks/useFetch";
 import { Anomaly, FurnaceStatus } from "../lib/types";
 import { nf } from "../lib/format";
 import { Chip, StatusChip } from "./ui";
+import { isEngineReady } from "../services/ai/modelManager";
 
 const NAV = [
   { to: "/", label: "Overview", icon: LayoutDashboard, end: true },
@@ -34,7 +36,7 @@ const NAV = [
   { to: "/energy", label: "Energy Intelligence", icon: Zap },
   { to: "/anomalies", label: "Anomaly Detection", icon: ShieldAlert },
   { to: "/history", label: "Heat History", icon: History },
-  { to: "/shakthi-ai", label: "SHAKTHI AI", icon: Sparkles },
+  { to: "/shakthi-ai", label: "Sakthi Copilot", icon: Sparkles },
   { to: "/reports", label: "Reports & Analytics", icon: FileText },
   { to: "/settings", label: "AI Model Settings", icon: SettingsIcon },
 ];
@@ -47,10 +49,10 @@ function Clock() {
   }, []);
   return (
     <div className="hidden text-right lg:block">
-      <p className="mono text-[12px] leading-tight text-ink-200">
+      <p className="mono text-[12px] leading-tight text-ink-100">
         {now.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
       </p>
-      <p className="text-[10px] uppercase tracking-[0.08em] text-ink-500">
+      <p className="text-[10px] uppercase tracking-[0.08em] text-ink-400">
         {now.toLocaleDateString("en-GB", { weekday: "short", day: "2-digit", month: "short", year: "numeric" })}
       </p>
     </div>
@@ -60,14 +62,18 @@ function Clock() {
 function Brand({ compact }: { compact?: boolean }) {
   return (
     <div className="flex items-center gap-2.5">
-      <div className="relative grid h-8 w-8 place-items-center rounded-lg border border-electric/40 bg-electric/10">
-        <Command className="h-4 w-4 text-electric" strokeWidth={2.4} />
-        <span className="absolute -right-0.5 -top-0.5 h-1.5 w-1.5 rounded-full bg-cyan" />
+      <div className="relative grid h-8 w-8 place-items-center rounded-lg border border-emerald/40 bg-emerald-deep/40 shadow-sm shadow-emerald-950">
+        <Sparkles className="h-4 w-4 text-emerald" strokeWidth={2.4} />
+        <span className="absolute -right-0.5 -top-0.5 h-1.5 w-1.5 rounded-full bg-emerald-mint animate-pulse" />
       </div>
       {!compact && (
         <div className="leading-tight">
-          <p className="text-[13.5px] font-semibold tracking-[0.04em] text-white">FORGEOPTIMA <span className="text-electric">AI</span></p>
-          <p className="text-[9.5px] uppercase tracking-[0.16em] text-ink-500">Induction Furnace Intelligence</p>
+          <p className="text-[13.5px] font-bold tracking-[0.04em] text-white">
+            FORGEOPTIMA <span className="text-emerald">AI</span>
+          </p>
+          <p className="text-[9.5px] uppercase tracking-[0.16em] text-ink-400">
+            Induction Furnace Intelligence
+          </p>
         </div>
       )}
     </div>
@@ -75,15 +81,26 @@ function Brand({ compact }: { compact?: boolean }) {
 }
 
 export default function Layout() {
-  const [open, setOpen] = useState(false);
+  const [mobileOpen, setMobileOpen] = useState(false);
+  const [collapsed, setCollapsed] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const location = useLocation();
 
   const status = useFetch<FurnaceStatus>("/furnace/status", { pollMs: 15000 });
   const alerts = useFetch<Anomaly[]>("/anomalies?limit=8", { pollMs: 45000 });
 
+  const [modelReady, setModelReady] = useState(false);
+
   useEffect(() => {
-    setOpen(false);
+    setModelReady(isEngineReady());
+    const interval = setInterval(() => {
+      setModelReady(isEngineReady());
+    }, 2500);
+    return () => clearInterval(interval);
+  }, []);
+
+  useEffect(() => {
+    setMobileOpen(false);
     setNotificationsOpen(false);
   }, [location.pathname]);
 
@@ -96,45 +113,66 @@ export default function Layout() {
   const connected = !status.error && !!status.data;
 
   return (
-    <div className="flex min-h-screen">
+    <div className="flex min-h-screen bg-base-900 text-ink-100">
       {/* Sidebar */}
       <aside
         className={clsx(
-          "fixed inset-y-0 left-0 z-40 w-[248px] shrink-0 border-r border-base-700/70 bg-base-950/95 backdrop-blur transition-transform duration-200 lg:static lg:translate-x-0",
-          open ? "translate-x-0" : "-translate-x-full"
+          "fixed inset-y-0 left-0 z-40 flex flex-col border-r border-base-700 bg-base-950/95 backdrop-blur-md transition-all duration-200 lg:static",
+          collapsed ? "w-[68px]" : "w-[250px]",
+          mobileOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
         )}
       >
-        <div className="flex h-[57px] items-center justify-between border-b border-base-700/70 px-4">
-          <Brand />
-          <button className="text-ink-400 lg:hidden" onClick={() => setOpen(false)} aria-label="Close navigation">
+        {/* Header */}
+        <div className="flex h-[58px] items-center justify-between border-b border-base-700 px-3.5">
+          <Brand compact={collapsed} />
+          <button
+            className="text-ink-400 hover:text-white lg:hidden"
+            onClick={() => setMobileOpen(false)}
+            aria-label="Close navigation"
+          >
             <X className="h-4 w-4" />
+          </button>
+          <button
+            className="hidden text-ink-400 hover:text-emerald lg:block transition-colors"
+            onClick={() => setCollapsed(!collapsed)}
+            title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+          >
+            {collapsed ? <PanelLeftOpen className="h-4 w-4" /> : <PanelLeftClose className="h-4 w-4" />}
           </button>
         </div>
 
-        <nav className="flex flex-col gap-0.5 px-2.5 py-3">
+        {/* Nav Links */}
+        <nav className="flex-1 flex flex-col gap-0.5 overflow-y-auto px-2 py-3">
           {NAV.map((item) => (
             <NavLink
               key={item.to}
               to={item.to}
               end={item.end}
+              title={collapsed ? item.label : undefined}
               className={({ isActive }) =>
                 clsx(
-                  "group flex items-center gap-2.5 rounded-lg px-2.5 py-[7px] text-[12.5px] font-medium transition-colors",
+                  "group flex items-center gap-2.5 rounded-lg transition-all duration-150",
+                  collapsed ? "justify-center px-2 py-2.5" : "px-3 py-2 text-[12.5px]",
                   isActive
-                    ? "bg-electric/10 text-white shadow-[inset_2px_0_0_0_#3B7DFF]"
-                    : "text-ink-400 hover:bg-base-800/70 hover:text-ink-100"
+                    ? "bg-emerald-deep/40 text-white font-semibold shadow-[inset_3px_0_0_0_#10B981] border border-emerald/30"
+                    : "text-ink-400 hover:bg-base-800 hover:text-ink-100 border border-transparent"
                 )
               }
             >
               {({ isActive }) => (
                 <>
                   <item.icon
-                    className={clsx("h-[15px] w-[15px]", isActive ? "text-electric" : "text-ink-500 group-hover:text-ink-300")}
-                    strokeWidth={1.8}
+                    className={clsx(
+                      "shrink-0 h-[16px] w-[16px] transition-colors",
+                      isActive ? "text-emerald" : "text-ink-400 group-hover:text-emerald-bright"
+                    )}
+                    strokeWidth={isActive ? 2.2 : 1.8}
                   />
-                  <span className="truncate">{item.label}</span>
-                  {item.to === "/anomalies" && critical.length > 0 && (
-                    <span className="mono ml-auto rounded bg-crit/15 px-1.5 py-0.5 text-[10px] text-crit">{critical.length}</span>
+                  {!collapsed && <span className="truncate">{item.label}</span>}
+                  {!collapsed && item.to === "/anomalies" && critical.length > 0 && (
+                    <span className="mono ml-auto rounded bg-crit/20 px-1.5 py-0.2 text-[10px] font-bold text-crit">
+                      {critical.length}
+                    </span>
                   )}
                 </>
               )}
@@ -142,34 +180,64 @@ export default function Layout() {
           ))}
         </nav>
 
-        <div className="mx-2.5 mt-1 rounded-lg border border-base-700 bg-base-900/70 p-3">
-          <div className="flex items-center gap-2">
-            <span className="relative flex h-1.5 w-1.5">
-              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-good opacity-60" />
-              <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-good" />
-            </span>
-            <p className="text-[10.5px] font-semibold uppercase tracking-[0.1em] text-ink-300">Decision Support</p>
+        {/* Copilot Status Mini-Banner */}
+        {!collapsed && (
+          <div className="mx-2.5 mb-2 rounded-xl border border-emerald/30 bg-gradient-to-br from-emerald-deep/40 to-base-850 p-3 shadow-sm">
+            <div className="flex items-center gap-2">
+              <span className="relative flex h-2 w-2">
+                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald opacity-75" />
+                <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald" />
+              </span>
+              <p className="text-[11px] font-bold uppercase tracking-wider text-white">
+                SAKTHI COPILOT
+              </p>
+            </div>
+            <p className="mt-1 text-[10.5px] leading-relaxed text-ink-300">
+              Your Intelligent Industrial Furnace Copilot (Qwen 2.5 0.5B WebGPU)
+            </p>
+            <div className="mt-2 flex items-center justify-between border-t border-base-700/80 pt-1.5 text-[10px]">
+              <span className="text-ink-400">Inference Mode</span>
+              <span className="mono text-emerald-bright font-semibold">
+                {modelReady ? "READY (GPU)" : "ON-DEVICE"}
+              </span>
+            </div>
           </div>
-          <p className="mt-1.5 text-[10.5px] leading-relaxed text-ink-500">
-            Read-only analytics. ForgeOptima AI does not control furnace equipment.
-          </p>
-          <div className="mt-2.5 flex items-center justify-between border-t border-base-700/70 pt-2">
-            <span className="text-[10px] uppercase tracking-wide text-ink-500">Version</span>
-            <span className="mono text-[10.5px] text-ink-300">1.0.0</span>
+        )}
+
+        {/* User Profile Section at bottom of sidebar */}
+        <div className="border-t border-base-700 p-3 bg-base-950/80">
+          <div className={clsx("flex items-center gap-2.5", collapsed && "justify-center")}>
+            <div className="grid h-8 w-8 shrink-0 place-items-center rounded-lg border border-emerald/40 bg-emerald-deep/60 text-[11px] font-bold text-white shadow-sm">
+              HK
+            </div>
+            {!collapsed && (
+              <div className="min-w-0 flex-1 leading-tight">
+                <p className="truncate text-[12px] font-semibold text-white">Hari Kumar</p>
+                <p className="truncate text-[10px] uppercase tracking-wide text-emerald font-medium">
+                  Process Metallurgist
+                </p>
+              </div>
+            )}
           </div>
         </div>
-
-        <p className="absolute bottom-3 left-0 right-0 px-4 text-[9.5px] leading-relaxed text-ink-600">
-          Predict Smarter. Optimize Energy. Melt Efficiently.
-        </p>
       </aside>
 
-      {open && <div className="fixed inset-0 z-30 bg-black/60 lg:hidden" onClick={() => setOpen(false)} />}
+      {mobileOpen && (
+        <div
+          className="fixed inset-0 z-30 bg-black/70 backdrop-blur-sm lg:hidden"
+          onClick={() => setMobileOpen(false)}
+        />
+      )}
 
-      {/* Main */}
+      {/* Main Content Area */}
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="sticky top-0 z-20 flex h-[57px] items-center gap-3 border-b border-base-700/70 bg-base-900/85 px-4 backdrop-blur-xl">
-          <button className="text-ink-300 lg:hidden" onClick={() => setOpen(true)} aria-label="Open navigation">
+        {/* Top Navigation */}
+        <header className="sticky top-0 z-20 flex h-[58px] items-center gap-3 border-b border-base-700 bg-base-900/90 px-4 backdrop-blur-xl">
+          <button
+            className="text-ink-300 hover:text-white lg:hidden"
+            onClick={() => setMobileOpen(true)}
+            aria-label="Open navigation"
+          >
             <Menu className="h-5 w-5" />
           </button>
 
@@ -177,27 +245,35 @@ export default function Layout() {
             <StatusChip status={status.data?.status ?? "unknown"} />
             {status.data?.active_heat_id && (
               <Chip tone="neutral">
-                <span className="text-ink-500">Heat</span>
-                <span className="mono text-ink-200">{status.data.active_heat_id}</span>
+                <span className="text-ink-400">Heat</span>
+                <span className="mono text-white font-semibold">{status.data.active_heat_id}</span>
               </Chip>
             )}
-            <Chip tone={dataMode === "simulated" ? "violet" : dataMode === "historical" ? "cyan" : "neutral"}>
-              {dataMode === "simulated" ? "SIMULATED DATA" : dataMode === "historical" ? "HISTORICAL REFERENCE" : "NO TELEMETRY"}
+            <Chip tone="good">
+              {dataMode === "simulated" ? "SIMULATED TELEMETRY" : "PLANT SENSORS CONNECTED"}
             </Chip>
           </div>
 
           <div className="ml-auto flex items-center gap-2.5">
-            <div className="hidden items-center gap-3 sm:flex">
-              <Chip tone={connected ? "good" : "violet"}>
+            <div className="hidden items-center gap-2.5 sm:flex">
+              {/* API Connection Status */}
+              <Chip tone={connected ? "good" : "warn"}>
                 <Wifi className="h-3 w-3" />
-                {connected ? "API connected" : "Cloud Sync Active"}
+                {connected ? "API Connected" : "Local Engine Active"}
               </Chip>
-              <Chip tone="cyan">
-                <Sparkles className="h-3 w-3 text-cyan" />
-                SHAKTHI AI · Qwen2.5 0.5B (WebGPU)
-              </Chip>
+
+              {/* SAKTHI COPILOT Model Status */}
+              <NavLink
+                to="/settings"
+                className="inline-flex items-center gap-1.5 rounded-md border border-emerald/30 bg-emerald-deep/30 px-2 py-1 text-[11px] font-semibold text-white hover:border-emerald hover:bg-emerald-deep/50 transition-colors"
+                title="Sakthi Copilot WebGPU Model Status"
+              >
+                <Sparkles className="h-3 w-3 text-emerald-bright animate-pulse" />
+                <span>SAKTHI COPILOT · {modelReady ? "READY (WebGPU)" : "Qwen 2.5 0.5B"}</span>
+              </NavLink>
+
               {status.data && (
-                <span className="mono hidden text-[12px] text-ink-200 md:inline">
+                <span className="mono hidden text-[12px] text-ink-100 font-semibold md:inline px-2 py-0.5 rounded border border-base-700 bg-base-800">
                   {nf(status.data.temperature_c)} °C
                 </span>
               )}
@@ -205,27 +281,35 @@ export default function Layout() {
 
             <Clock />
 
+            {/* Notifications */}
             <div className="relative">
               <button
-                className="relative rounded-lg border border-base-600 p-1.5 text-ink-300 transition-colors hover:border-base-500 hover:text-white"
+                className="relative rounded-lg border border-base-700 bg-base-800 p-2 text-ink-300 transition-colors hover:border-emerald hover:text-white"
                 onClick={() => setNotificationsOpen((v) => !v)}
                 aria-label="Notifications"
               >
                 <Bell className="h-4 w-4" />
                 {critical.length > 0 && (
-                  <span className="absolute -right-1 -top-1 grid h-4 min-w-4 place-items-center rounded-full bg-crit px-1 text-[9px] font-semibold text-white">
+                  <span className="absolute -right-1 -top-1 grid h-4 min-w-4 place-items-center rounded-full bg-crit px-1 text-[9px] font-bold text-white">
                     {critical.length}
                   </span>
                 )}
               </button>
               {notificationsOpen && (
-                <div className="absolute right-0 mt-2 w-[330px] overflow-hidden rounded-xl border border-base-600 bg-base-850 shadow-2xl">
-                  <div className="border-b border-base-700 px-3.5 py-2.5">
-                    <p className="text-[11px] font-semibold uppercase tracking-[0.1em] text-ink-300">Open alerts</p>
+                <div className="absolute right-0 mt-2 w-[340px] overflow-hidden rounded-xl border border-base-700 bg-base-850 shadow-2xl z-50">
+                  <div className="border-b border-base-700 px-3.5 py-2.5 bg-base-900 flex items-center justify-between">
+                    <p className="text-[11px] font-bold uppercase tracking-wider text-white">
+                      Active Anomalies & Alerts
+                    </p>
+                    <span className="text-[10px] text-ink-400 font-mono">
+                      {alerts.data?.length ?? 0} total
+                    </span>
                   </div>
                   <div className="max-h-[300px] overflow-y-auto">
                     {(alerts.data ?? []).length === 0 && (
-                      <p className="px-3.5 py-4 text-[12px] text-ink-500">No alerts recorded.</p>
+                      <p className="px-3.5 py-6 text-center text-[12px] text-ink-400">
+                        No active anomalies detected.
+                      </p>
                     )}
                     {(alerts.data ?? []).slice(0, 6).map((alert) => (
                       <NavLink
@@ -234,17 +318,21 @@ export default function Layout() {
                         className="block border-b border-base-700/60 px-3.5 py-2.5 transition-colors hover:bg-base-800"
                       >
                         <div className="flex items-center justify-between gap-2">
-                          <p className="text-[12px] font-medium text-ink-100">{alert.anomaly_type}</p>
+                          <p className="text-[12px] font-medium text-white">{alert.anomaly_type}</p>
                           <span
                             className={clsx(
-                              "text-[9.5px] font-semibold",
-                              alert.severity === "HIGH" ? "text-crit" : alert.severity === "MEDIUM" ? "text-warn" : "text-cyan"
+                              "text-[9.5px] font-bold px-1.5 py-0.5 rounded",
+                              alert.severity === "HIGH"
+                                ? "bg-crit/20 text-crit"
+                                : alert.severity === "MEDIUM"
+                                ? "bg-warn/20 text-warn"
+                                : "bg-emerald/20 text-emerald-bright"
                             )}
                           >
                             {alert.severity}
                           </span>
                         </div>
-                        <p className="mt-0.5 truncate text-[10.5px] text-ink-500">
+                        <p className="mt-0.5 truncate text-[10.5px] text-ink-400">
                           {alert.heat_id} · {alert.explanation}
                         </p>
                       </NavLink>
@@ -252,7 +340,7 @@ export default function Layout() {
                   </div>
                   <NavLink
                     to="/anomalies"
-                    className="flex items-center justify-between px-3.5 py-2 text-[11px] text-electric hover:bg-base-800"
+                    className="flex items-center justify-between px-3.5 py-2 text-[11px] text-emerald hover:bg-base-800 font-medium"
                   >
                     View all anomalies <ChevronRight className="h-3.5 w-3.5" />
                   </NavLink>
@@ -260,18 +348,20 @@ export default function Layout() {
               )}
             </div>
 
+            {/* User Profile Pill in Top Bar */}
             <div className="flex items-center gap-2 border-l border-base-700 pl-2.5">
-              <div className="grid h-7 w-7 place-items-center rounded-full border border-base-600 bg-gradient-to-br from-electric/25 to-violet/20 text-[10.5px] font-semibold text-white">
+              <div className="grid h-7 w-7 place-items-center rounded-lg border border-emerald/40 bg-emerald-deep/50 text-[10.5px] font-bold text-white">
                 HK
               </div>
               <div className="hidden leading-tight xl:block">
-                <p className="text-[11.5px] font-medium text-ink-100">Hari Kumar</p>
-                <p className="text-[9.5px] uppercase tracking-wide text-ink-500">Furnace Operator</p>
+                <p className="text-[11.5px] font-medium text-white">Hari Kumar</p>
+                <p className="text-[9.5px] uppercase tracking-wide text-ink-400">Operator</p>
               </div>
             </div>
           </div>
         </header>
 
+        {/* Main Routed Page Content */}
         <main className="flex-1 px-4 py-5 lg:px-6">
           <div className="mx-auto w-full max-w-[1560px] animate-slideUp">
             <Outlet />

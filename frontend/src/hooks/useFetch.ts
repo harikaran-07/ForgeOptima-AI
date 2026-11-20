@@ -10,11 +10,11 @@ interface State<T> {
 const FALLBACK_DATA: Record<string, unknown> = {
   "/ai/status": {
     online: true,
-    model: "SHAKTHI Cloud Engine",
+    model: "Sakthi Copilot (Qwen 2.5 0.5B WebGPU)",
     base_url_configured: true,
     latency_ms: 12.0,
-    detail: "Online · SHAKTHI Industrial AI Cloud Engine active.",
-    models_available: ["SHAKTHI Cloud Engine", "qwen2.5:3b (Ollama)"],
+    detail: "Online · Sakthi Copilot WebGPU local engine active.",
+    models_available: ["Qwen 2.5 0.5B Instruct (WebGPU)"],
     checked_at: new Date().toISOString(),
   },
   "/ai/suggestions": {
@@ -27,9 +27,9 @@ const FALLBACK_DATA: Record<string, unknown> = {
       "Explain the predicted energy consumption.",
       "Summarize today's production.",
     ],
-    assistant: "SHAKTHI AI",
+    assistant: "SAKTHI COPILOT",
     tagline: "Your Intelligent Industrial Furnace Copilot",
-    model_note: "SHAKTHI Cloud Engine",
+    model_note: "Qwen 2.5 0.5B WebGPU",
   },
   "/furnace/status": {
     furnace: {

@@ -364,8 +364,8 @@ function HeatDetail({ heatId, onClose }: { heatId: string; onClose: () => void }
                 yUnit="°C"
                 height={190}
                 series={[
-                  { key: "temperature_c", name: "Temperature", color: "#22D3EE", area: true },
-                  { key: "power_kw", name: "Power (kW)", color: "#3B7DFF" },
+                  { key: "temperature_c", name: "Temperature", color: "#10B981", area: true },
+                  { key: "power_kw", name: "Power (kW)", color: "#34D399" },
                 ]}
               />
             )}

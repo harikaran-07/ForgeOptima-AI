@@ -1,5 +1,5 @@
 /**
- * Central Shakthi AI Intelligence Engine
+ * Central Sakthi Copilot Intelligence Engine
  *
  * Implements:
  * - Shared WebGPU inference using Qwen 2.5 0.5B Instruct
@@ -73,7 +73,7 @@ export function invalidateAiCache(): void {
  * Builds the base industrial furnace system prompt for Qwen 2.5 0.5B Instruct.
  */
 export function buildEngineSystemPrompt(): string {
-  return `You are SHAKTHI AI, an expert industrial furnace metallurgist and energy optimization AI engine.
+  return `You are SAKTHI COPILOT, an expert industrial furnace metallurgist and energy optimization AI copilot.
 Your task is to analyze industrial induction furnace data, temperatures, electrical power, melting curves, and operational anomalies.
 
 NON-NEGOTIABLE SAFETY DIRECTIVES:

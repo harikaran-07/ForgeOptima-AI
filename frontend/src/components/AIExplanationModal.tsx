@@ -79,7 +79,7 @@ ${response.limitations.map((l) => `- ${l}`).join("\n")}
             <div>
               <div className="flex items-center gap-2">
                 <h3 className="text-[14px] font-semibold text-white">
-                  {response?.title ?? (loading ? "Generating AI Explanation…" : "AI Explanation")}
+                  {response?.title ?? (loading ? "Generating Sakthi Copilot Explanation…" : "Sakthi Copilot Explanation")}
                 </h3>
                 {moduleName && (
                   <span className="rounded bg-base-800 px-1.5 py-0.5 text-[10px] font-medium text-ink-400">
@@ -90,11 +90,11 @@ ${response.limitations.map((l) => `- ${l}`).join("\n")}
               <p className="text-[11px] text-ink-400 flex items-center gap-1.5 mt-0.5">
                 {response?.isModelGenerated ? (
                   <span className="flex items-center gap-1 text-good">
-                    <Cpu className="h-3 w-3" /> Qwen 2.5 0.5B Instruct (WebGPU Local)
+                    <Cpu className="h-3 w-3" /> Sakthi Copilot · Qwen 2.5 0.5B (WebGPU Local)
                   </span>
                 ) : (
                   <span className="flex items-center gap-1 text-cyan">
-                    <Cpu className="h-3 w-3" /> ForgeOptima Grounded Engine
+                    <Cpu className="h-3 w-3" /> Sakthi Copilot · Grounded Engine
                   </span>
                 )}
                 <span>·</span>

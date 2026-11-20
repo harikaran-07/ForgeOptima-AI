@@ -488,8 +488,8 @@ export default function ShakthiAI() {
     <div className="space-y-5">
       <PageHeader
         eyebrow="Module 09 · Industrial Furnace Copilot"
-        title="SHAKTHI AI"
-        description="Browser Local AI powered by Qwen2.5-0.5B-Instruct running directly inside your browser via WebGPU. Grounded decision support for furnace temperature, combustion, thermal efficiency, energy, and anomalies — zero external API keys, 100% private."
+        title="SAKTHI COPILOT"
+        description="Your Intelligent Industrial Furnace Copilot powered by Qwen 2.5 0.5B Instruct running directly inside your browser via WebGPU. Grounded decision support for furnace temperature, combustion physics, power optimization, thermal efficiency, energy, and anomalies — zero external API keys, 100% private."
       >
         <Chip tone={modelReady ? "good" : isCached ? "cyan" : "warn"}>
           <span
@@ -498,7 +498,7 @@ export default function ShakthiAI() {
               modelReady ? "animate-pulseSoft bg-good" : isCached ? "bg-cyan" : "bg-warn"
             )}
           />
-          {modelReady ? "Qwen2.5 0.5B Active (WebGPU)" : isCached ? "Model Installed" : "Model Not Loaded"}
+          {modelReady ? "Qwen 2.5 0.5B | WebGPU | Local AI · READY" : isCached ? "Qwen 2.5 0.5B | WebGPU | Local AI · Installed" : "Qwen 2.5 0.5B | WebGPU | Local AI"}
         </Chip>
 
         <Chip tone="neutral" className="hidden sm:inline-flex">
@@ -636,12 +636,12 @@ export default function ShakthiAI() {
                   <div className="mx-auto grid h-12 w-12 place-items-center rounded-2xl border border-electric/40 bg-gradient-to-br from-electric/20 via-cyan/10 to-base-900 shadow-panel">
                     <Sparkles className="h-6 w-6 text-electric animate-pulseSoft" />
                   </div>
-                  <h3 className="mt-3 text-[16px] font-semibold text-white tracking-tight">SHAKTHI AI</h3>
+                  <h3 className="mt-3 text-[16px] font-semibold text-white tracking-tight">SAKTHI COPILOT</h3>
                   <p className="mt-0.5 text-[12px] font-medium text-electric tracking-wide">
-                    Qwen2.5-0.5B-Instruct · Browser Local AI Copilot
+                    Your Intelligent Industrial Furnace Copilot
                   </p>
                   <p className="text-[11px] text-ink-400 mt-0.5">
-                    100% Private WebGPU Inference · No Cloud API Required
+                    Qwen 2.5 0.5B | WebGPU | Local AI · 100% Private
                   </p>
                   <p className="mt-2 text-[12px] leading-relaxed text-ink-400 max-w-md mx-auto">
                     Expert generative AI assistant for industrial induction furnaces, melting metallurgy,
@@ -811,7 +811,7 @@ export default function ShakthiAI() {
                   className="input max-h-28 min-h-[44px] resize-none leading-relaxed text-[13px] border-base-700 focus:border-electric/60 focus:ring-1 focus:ring-electric/30"
                   placeholder={
                     modelReady
-                      ? "Ask SHAKTHI AI about furnace condition, energy, melting time, or anomalies…"
+                      ? "Ask Sakthi Copilot about furnace condition, energy, melting time, or anomalies…"
                       : loadingModel
                       ? `Qwen2.5 0.5B is initializing in WebGPU (${loadProgress.progress}%)...`
                       : isCached

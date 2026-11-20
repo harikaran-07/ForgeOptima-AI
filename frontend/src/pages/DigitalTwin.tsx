@@ -202,7 +202,7 @@ export default function DigitalTwin() {
                 <path
                   key={y}
                   d={`M126 ${y} h168`}
-                  stroke={i % 2 === 0 ? "#3B7DFF" : "#22D3EE"}
+                  stroke={i % 2 === 0 ? "#10B981" : "#34D399"}
                   strokeWidth="2.4"
                   strokeLinecap="round"
                   opacity={state && (state.power_kw ?? 0) > 0 ? 0.32 + 0.18 * Math.sin((state.elapsed_min + i) / 3) : 0.16}
@@ -210,7 +210,7 @@ export default function DigitalTwin() {
               ))}
 
               {/* crucible interior */}
-              <rect x="136" y="58" width="148" height="188" rx="16" fill="#0A0F1A" stroke="#1F2B3F" strokeWidth="1" />
+              <rect x="136" y="58" width="148" height="188" rx="16" fill="#071411" stroke="#24513F" strokeWidth="1" />
 
               {/* molten bath */}
               <g clipPath="none">
@@ -235,7 +235,7 @@ export default function DigitalTwin() {
               </g>
 
               {/* level readout line */}
-              <line x1="136" y1={246 - (fill / 100) * 186} x2="284" y2={246 - (fill / 100) * 186} stroke="#22D3EE" strokeWidth="0.8" strokeDasharray="3 4" opacity="0.55" />
+              <line x1="136" y1={246 - (fill / 100) * 186} x2="284" y2={246 - (fill / 100) * 186} stroke="#34D399" strokeWidth="0.8" strokeDasharray="3 4" opacity="0.55" />
 
               {/* tap spout */}
               <path d="M302 118 h22 l6 10 -6 10 h-22" fill="#1B2639" stroke="#2B3A52" strokeWidth="1.2" />
@@ -318,10 +318,10 @@ export default function DigitalTwin() {
               </div>
               <div className="grid grid-cols-2 gap-2">
                 <Field label={`Efficiency ${(config.efficiency * 100).toFixed(0)}%`}>
-                  <input type="range" min={0.5} max={0.9} step={0.01} value={config.efficiency} onChange={(e) => setConfig({ ...config, efficiency: Number(e.target.value) })} className="w-full accent-[#8B7CF6]" />
+                  <input type="range" min={0.5} max={0.9} step={0.01} value={config.efficiency} onChange={(e) => setConfig({ ...config, efficiency: Number(e.target.value) })} className="w-full accent-[#10B981]" />
                 </Field>
                 <Field label={`Step ${config.time_step_min} min`}>
-                  <input type="range" min={0.5} max={5} step={0.5} value={config.time_step_min} onChange={(e) => setConfig({ ...config, time_step_min: Number(e.target.value) })} className="w-full accent-[#8B7CF6]" />
+                  <input type="range" min={0.5} max={5} step={0.5} value={config.time_step_min} onChange={(e) => setConfig({ ...config, time_step_min: Number(e.target.value) })} className="w-full accent-[#10B981]" />
                 </Field>
               </div>
 
@@ -400,9 +400,9 @@ export default function DigitalTwin() {
               height={250}
               series={[
                 { key: "temperature_c", name: "Temperature", color: "#FF8A3D", area: true },
-                { key: "energy_kwh", name: "Energy (kWh)", color: "#8B7CF6" },
+                { key: "energy_kwh", name: "Energy (kWh)", color: "#10B981" },
               ]}
-              reference={[{ value: target, label: "TARGET", color: "#5A6B85" }]}
+              reference={[{ value: target, label: "TARGET", color: "#24513F" }]}
             />
           ) : (
             <p className="py-24 text-center text-[12px] text-ink-500">

@@ -159,11 +159,11 @@ export default function PowerOptimizer() {
                 step={25}
                 value={form.current_power_kw}
                 onChange={(e) => setForm({ ...form, current_power_kw: Number(e.target.value) })}
-                className="mt-1.5 w-full accent-[#3B7DFF]"
+                className="mt-1.5 w-full accent-[#10B981]"
               />
               <div className="mt-2 flex justify-between text-[10.5px] text-ink-400">
                 <span>Alternative profile</span>
-                <span className="mono text-violet">{nf(form.alternative_power_kw)} kW</span>
+                <span className="mono text-mint">{nf(form.alternative_power_kw)} kW</span>
               </div>
               <input
                 type="range"
@@ -172,7 +172,7 @@ export default function PowerOptimizer() {
                 step={25}
                 value={form.alternative_power_kw}
                 onChange={(e) => setForm({ ...form, alternative_power_kw: Number(e.target.value) })}
-                className="mt-1.5 w-full accent-[#8B7CF6]"
+                className="mt-1.5 w-full accent-[#34D399]"
               />
               <p className="mt-2 text-[10px] leading-relaxed text-ink-500">
                 Sliders are bounded by the furnace envelope. Requests outside these limits are clipped by the API.
@@ -249,8 +249,8 @@ export default function PowerOptimizer() {
                     yUnit="°C"
                     height={250}
                     series={[
-                      { key: "current_temp", name: `Current ${nf(result.current.power_kw)} kW`, color: "#3B7DFF", area: true },
-                      { key: "alternative_temp", name: `Alternative ${nf(result.alternative.power_kw)} kW`, color: "#8B7CF6", dashed: true },
+                      { key: "current_temp", name: `Current ${nf(result.current.power_kw)} kW`, color: "#10B981", area: true },
+                      { key: "alternative_temp", name: `Alternative ${nf(result.alternative.power_kw)} kW`, color: "#34D399", dashed: true },
                     ]}
                   />
                 </Panel>

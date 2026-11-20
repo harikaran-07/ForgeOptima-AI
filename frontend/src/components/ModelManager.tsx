@@ -576,11 +576,11 @@ export function ModelManager({
               {currentState === "Ready" && (
                 <>
                   <a
-                    href="/shakthi-ai"
+                    href="/sakthi-copilot"
                     className="btn-primary !py-2.5 !px-5 text-[12.5px] bg-gradient-to-r from-good to-cyan hover:from-good/90 hover:to-cyan/90 shadow-panel"
                   >
                     <Sparkles className="h-4 w-4" />
-                    <span>Open Shakthi AI Chat →</span>
+                    <span>Open Sakthi Copilot Chat →</span>
                   </a>
                   <button
                     type="button"

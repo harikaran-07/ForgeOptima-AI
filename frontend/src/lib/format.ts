@@ -48,15 +48,15 @@ export const severityTone = (severity: string) =>
 
 export const gradeColor = (grade: string): string => {
   const map: Record<string, string> = {
-    MS: "#3B7DFF",
-    SS304: "#22D3EE",
-    SS316: "#8B7CF6",
-    "Alloy Steel": "#34D399",
-    "Cast Iron": "#FBBF24",
-    "Al Alloy": "#F472B6",
-    "Cu Alloy": "#FB923C",
+    MS: "#10B981",          // Emerald Green
+    SS304: "#34D399",       // Bright Mint
+    SS316: "#14B8A6",       // Muted Teal
+    "Alloy Steel": "#059669",// Deep Emerald
+    "Cast Iron": "#FBBF24", // Amber
+    "Al Alloy": "#6EE7B7",  // Light Mint
+    "Cu Alloy": "#F59E0B",  // Warm Copper
   };
-  return map[grade] ?? "#7688A3";
+  return map[grade] ?? "#9CB8AA";
 };
 
 export const statusTone = (status: string) => {

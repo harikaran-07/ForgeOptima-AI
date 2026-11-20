@@ -1,11 +1,11 @@
 /**
- * Client-Side SHAKTHI Industrial AI Reasoning Engine.
+ * Client-Side SAKTHI Industrial Copilot Reasoning Engine.
  *
  * Provides instant, zero-latency grounded reasoning aligned with plant metallurgy
  * physics and machine learning prediction models when the cloud backend is waking
  * up or in cold-start.
  *
- * Follows all SHAKTHI AI operating rules:
+ * Follows all SAKTHI COPILOT operating rules:
  * - Read-only decision support only (no control commands)
  * - Exact industrial units: min, kWh, kWh/kg, °C, kW, A, V
  * - Machine learning metric citations: MAE, RMSE, R²

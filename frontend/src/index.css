@@ -8,22 +8,27 @@
   }
   body {
     @apply bg-base-900 text-ink-100 font-sans antialiased;
+    background-color: #071411;
     background-image:
-      radial-gradient(900px 520px at 12% -10%, rgba(59, 125, 255, 0.09), transparent 60%),
-      radial-gradient(760px 440px at 92% 0%, rgba(139, 124, 246, 0.07), transparent 60%);
+      radial-gradient(900px 520px at 12% -10%, rgba(16, 185, 129, 0.12), transparent 60%),
+      radial-gradient(760px 440px at 92% 0%, rgba(52, 211, 153, 0.08), transparent 60%),
+      radial-gradient(800px 600px at 50% 110%, rgba(6, 78, 59, 0.15), transparent 70%);
     background-attachment: fixed;
   }
   * {
     scrollbar-width: thin;
-    scrollbar-color: #28374f transparent;
+    scrollbar-color: #24513F transparent;
   }
   ::-webkit-scrollbar {
-    width: 9px;
-    height: 9px;
+    width: 8px;
+    height: 8px;
   }
   ::-webkit-scrollbar-thumb {
-    background: #28374f;
-    border-radius: 9px;
+    background: #24513F;
+    border-radius: 8px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: #2E644E;
   }
   ::-webkit-scrollbar-track {
     background: transparent;
@@ -38,10 +43,10 @@
 
 @layer components {
   .panel {
-    @apply rounded-xl border border-base-600/70 bg-base-850/80 shadow-panel backdrop-blur-[2px];
+    @apply rounded-xl border border-base-700/80 bg-base-850/90 shadow-panel backdrop-blur-[2px] transition-all duration-150;
   }
   .panel-head {
-    @apply flex flex-wrap items-center justify-between gap-3 border-b border-base-700/70 px-4 py-3;
+    @apply flex flex-wrap items-center justify-between gap-3 border-b border-base-700/80 px-4 py-3;
   }
   .panel-title {
     @apply text-[13px] font-semibold uppercase tracking-[0.11em] text-ink-300;
@@ -50,19 +55,19 @@
     @apply mb-1.5 block text-[11px] font-medium uppercase tracking-[0.09em] text-ink-400;
   }
   .input {
-    @apply w-full rounded-lg border border-base-600 bg-base-900/80 px-3 py-2 text-[13px] text-ink-100
-      outline-none transition placeholder:text-ink-600
-      focus:border-electric/70 focus:ring-1 focus:ring-electric/30 disabled:opacity-50;
+    @apply w-full rounded-lg border border-base-700 bg-base-900/90 px-3 py-2 text-[13px] text-ink-100
+      outline-none transition-all placeholder:text-ink-500
+      focus:border-emerald focus:ring-1 focus:ring-emerald/30 disabled:opacity-50;
   }
   .btn {
     @apply inline-flex items-center justify-center gap-2 rounded-lg px-3.5 py-2 text-[13px] font-medium
-      transition-colors duration-150 disabled:cursor-not-allowed disabled:opacity-45;
+      transition-all duration-150 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-45;
   }
   .btn-primary {
-    @apply btn bg-electric text-white hover:bg-[#2f6be6];
+    @apply btn bg-emerald text-base-950 font-semibold hover:bg-emerald-bright shadow-sm shadow-emerald/20 hover:shadow-emeraldGlow;
   }
   .btn-ghost {
-    @apply btn border border-base-600 bg-base-800/60 text-ink-200 hover:border-base-500 hover:text-white;
+    @apply btn border border-base-700 bg-base-800/80 text-ink-200 hover:border-emerald/50 hover:bg-base-750 hover:text-white;
   }
   .btn-danger {
     @apply btn border border-crit/40 bg-crit/10 text-crit hover:bg-crit/15;
@@ -80,6 +85,6 @@
     @apply whitespace-nowrap px-3 py-2.5 text-[12.5px] text-ink-200;
   }
   .row-hover {
-    @apply transition-colors hover:bg-base-750/60;
+    @apply transition-colors hover:bg-base-800/80;
   }
 }
