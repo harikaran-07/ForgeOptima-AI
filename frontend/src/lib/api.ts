@@ -1,6 +1,5 @@
-// When running on Vercel or local dev, route /api calls directly to same-origin Vercel Serverless Functions!
-const defaultBase = "";
-export const BASE = (import.meta.env.VITE_API_BASE_URL || defaultBase).replace(/\/$/, "");
+// All API routes are hosted natively under Vercel Serverless Functions on the same origin.
+export const BASE = "";
 
 export function getSessionId(): string {
   if (typeof window === "undefined") return "sess_default";
