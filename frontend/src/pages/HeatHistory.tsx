@@ -1,13 +1,16 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import clsx from "clsx";
-import { Download, Filter, Search, X } from "lucide-react";
+import { Download, Filter, Search, Sparkles, X } from "lucide-react";
 import { useFetch } from "../hooks/useFetch";
 import { api, downloadBlob } from "../lib/api";
 import { Heat, SimilarHeat } from "../lib/types";
 import { dt, gradeColor, kwh, minutes, nf } from "../lib/format";
 import { TrendChart } from "../components/charts";
 import { Chip, ErrorBox, Field, Notice, PageHeader, Panel, Spinner } from "../components/ui";
+import { AIExplanationModal } from "../components/AIExplanationModal";
+import { explainHistoricalComparison } from "../services/ai/historyExplainer";
+import { StructuredAIResponse } from "../services/ai/shakthiEngine";
 
 interface HeatPage {
   items: Heat[];
@@ -264,10 +267,37 @@ function HeatDetail({ heatId, onClose }: { heatId: string; onClose: () => void }
   const timeline = useFetch<Timeline>(`/analytics/heat/${heatId}/timeline`);
   const comparison = useFetch<Comparison>(`/heats/${heatId}/comparison`);
   const [downloadError, setDownloadError] = useState<string | null>(null);
+  const [aiModalOpen, setAiModalOpen] = useState(false);
+  const [aiResponse, setAiResponse] = useState<StructuredAIResponse | null>(null);
+  const [aiLoading, setAiLoading] = useState(false);
 
   useEffect(() => {
     setDownloadError(null);
   }, [heatId]);
+
+  const handleAiCompare = async (forceRefresh = false) => {
+    if (!detail.data) return;
+    setAiModalOpen(true);
+    setAiLoading(true);
+    try {
+      const res = await explainHistoricalComparison(
+        detail.data,
+        comparison.data?.similar ?? [],
+        {
+          avg_melting_time_min: 44.5,
+          avg_energy_kwh: 1780,
+          avg_energy_per_kg: 0.584,
+          best_energy_per_kg: comparison.data?.benchmark_energy_per_kg ?? 0.548,
+        },
+        forceRefresh
+      );
+      setAiResponse(res);
+    } catch (err) {
+      console.warn("AI Historical comparison error:", err);
+    } finally {
+      setAiLoading(false);
+    }
+  };
 
   const download = async (format: "pdf" | "csv") => {
     try {
@@ -341,6 +371,12 @@ function HeatDetail({ heatId, onClose }: { heatId: string; onClose: () => void }
             )}
 
             <div className="flex flex-wrap gap-2">
+              <button
+                className="btn-primary !py-1.5 !text-[11.5px] flex items-center gap-1.5"
+                onClick={() => handleAiCompare(false)}
+              >
+                <Sparkles className="h-3 w-3 text-electric" /> AI Historical Comparison
+              </button>
               <button className="btn-ghost !py-1.5 !text-[11.5px]" onClick={() => download("pdf")}>
                 <Download className="h-3 w-3" /> PDF report
               </button>
@@ -385,6 +421,15 @@ function HeatDetail({ heatId, onClose }: { heatId: string; onClose: () => void }
           </table>
         </div>
       </Panel>
+
+      <AIExplanationModal
+        isOpen={aiModalOpen}
+        onClose={() => setAiModalOpen(false)}
+        response={aiResponse}
+        loading={aiLoading}
+        onRefresh={() => handleAiCompare(true)}
+        moduleName="Historical Heat Comparison"
+      />
     </div>
   );
 }

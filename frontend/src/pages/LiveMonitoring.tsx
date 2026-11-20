@@ -9,16 +9,20 @@ import {
   Gauge,
   Play,
   RotateCcw,
+  Sparkles,
   SquarePen,
   Upload,
   Zap,
 } from "lucide-react";
 import { useFetch } from "../hooks/useFetch";
 import { api } from "../lib/api";
-import { GRADES, LiveSim, Reading } from "../lib/types";
+import { FurnaceStatus, GRADES, LiveSim, Reading } from "../lib/types";
 import { dt, gradeColor, kwh, minutes, nf } from "../lib/format";
 import { TrendChart } from "../components/charts";
 import { Chip, ErrorBox, Field, Notice, PageHeader, Panel, Progress, Spinner } from "../components/ui";
+import { AIExplanationModal } from "../components/AIExplanationModal";
+import { explainFurnaceReadings } from "../services/ai/furnaceExplainer";
+import { StructuredAIResponse } from "../services/ai/shakthiEngine";
 
 interface LiveResponse {
   simulation: LiveSim;
@@ -77,6 +81,55 @@ export default function LiveMonitoring() {
   });
   const [busy, setBusy] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [aiModalOpen, setAiModalOpen] = useState(false);
+  const [aiResponse, setAiResponse] = useState<StructuredAIResponse | null>(null);
+  const [aiLoading, setAiLoading] = useState(false);
+
+  const handleExplainReadings = async (forceRefresh = false) => {
+    setAiModalOpen(true);
+    setAiLoading(true);
+    try {
+      const fStatus: FurnaceStatus = {
+        furnace: {
+          id: 1,
+          name: "Core Induction Furnace IF-01",
+          code: "IF-01",
+          location: "Melt Shop Bay 1",
+          capacity_kg: config.charge_weight_kg ?? 3000,
+          rated_power_kw: 3200,
+          min_power_kw: 350,
+          max_power_kw: 3200,
+          nominal_voltage_v: latest?.voltage_v ?? 760,
+          status: running ? "ACTIVE" : "IDLE",
+        },
+        status: running ? "ACTIVE" : "IDLE",
+        active_heat_id: sim?.heat_id ?? "H-CURRENT",
+        temperature_c: latest?.temperature_c ?? 1420,
+        target_temperature_c: config.target_temp_c ?? 1550,
+        power_kw: latest?.power_kw ?? 1920,
+        current_a: latest?.current_a ?? 2410,
+        voltage_v: latest?.voltage_v ?? 760,
+        charge_weight_kg: config.charge_weight_kg ?? 3000,
+        melt_progress: latest?.melt_progress ?? 68.4,
+        energy_kwh: latest?.energy_kwh ?? 1197,
+        predicted_melting_time_min: 42.4,
+        predicted_remaining_min: 13.4,
+        predicted_energy_kwh: 1750,
+        efficiency_score: 91.4,
+        metal_grade: config.metal_grade ?? "MS",
+        expected_completion: null,
+        data_mode: "simulated",
+        data_source_note: "Live telemetry",
+        last_updated: new Date().toISOString(),
+      };
+      const res = await explainFurnaceReadings(fStatus, forceRefresh);
+      setAiResponse(res);
+    } catch (err) {
+      console.warn("Failed to explain readings:", err);
+    } finally {
+      setAiLoading(false);
+    }
+  };
 
   const control = async (action: string, body?: unknown) => {
     setBusy(action);
@@ -117,6 +170,12 @@ export default function LiveMonitoring() {
           {running ? "SIMULATION RUNNING" : "SIMULATION IDLE"}
         </Chip>
         <Chip tone={live.error ? "crit" : "good"}>{live.error ? "API unreachable" : "Connected"}</Chip>
+        <button
+          className="btn-primary !py-1.5 !text-[12px] flex items-center gap-1.5"
+          onClick={() => handleExplainReadings(false)}
+        >
+          <Sparkles className="h-3.5 w-3.5 text-electric" /> Explain Readings
+        </button>
       </PageHeader>
 
       <div className="flex w-full gap-1 rounded-lg border border-base-600 bg-base-850 p-1 sm:w-fit">
@@ -348,6 +407,15 @@ export default function LiveMonitoring() {
 
       {tab === "csv" && <CsvMode />}
       {tab === "manual" && <ManualMode />}
+
+      <AIExplanationModal
+        isOpen={aiModalOpen}
+        onClose={() => setAiModalOpen(false)}
+        response={aiResponse}
+        loading={aiLoading}
+        onRefresh={() => handleExplainReadings(true)}
+        moduleName="Furnace Monitoring"
+      />
     </div>
   );
 }

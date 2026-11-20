@@ -1,11 +1,14 @@
 import { useEffect, useMemo, useState } from "react";
-import { ArrowDownRight, ArrowUpRight, Gauge, Scale, ShieldCheck } from "lucide-react";
+import { ArrowDownRight, ArrowUpRight, Gauge, Scale, ShieldCheck, Sparkles } from "lucide-react";
 import { useFetch } from "../hooks/useFetch";
 import { api } from "../lib/api";
 import { GRADES, Optimization } from "../lib/types";
 import { kwh, minutes, nf, signed } from "../lib/format";
 import { TrendChart } from "../components/charts";
 import { Chip, ErrorBox, Field, Notice, PageHeader, Panel, Spinner } from "../components/ui";
+import { AIExplanationModal } from "../components/AIExplanationModal";
+import { explainOptimizationResult } from "../services/ai/optimizerExplainer";
+import { StructuredAIResponse } from "../services/ai/shakthiEngine";
 
 interface OptimizerContext {
   limits: { min_power_kw: number; max_power_kw: number; rated_power_kw: number; capacity_kg: number };
@@ -28,6 +31,32 @@ export default function PowerOptimizer() {
   const [result, setResult] = useState<Optimization | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [aiModalOpen, setAiModalOpen] = useState(false);
+  const [aiResponse, setAiResponse] = useState<StructuredAIResponse | null>(null);
+  const [aiLoading, setAiLoading] = useState(false);
+
+  const handleExplainOptimization = async (forceRefresh = false) => {
+    if (!result) return;
+    setAiModalOpen(true);
+    setAiLoading(true);
+    try {
+      const res = await explainOptimizationResult(
+        result,
+        {
+          metal_grade: form.metal_grade,
+          charge_weight_kg: form.charge_weight_kg,
+          current_power_kw: form.current_power_kw,
+          alternative_power_kw: form.alternative_power_kw,
+        },
+        forceRefresh
+      );
+      setAiResponse(res);
+    } catch (err) {
+      console.warn("AI Optimization explanation error:", err);
+    } finally {
+      setAiLoading(false);
+    }
+  };
 
   const limits = context.data?.limits;
   const minPower = limits?.min_power_kw ?? 350;
@@ -86,6 +115,14 @@ export default function PowerOptimizer() {
         <Chip tone="neutral">
           Limits {nf(minPower)}–{nf(maxPower)} kW
         </Chip>
+        {result && (
+          <button
+            className="btn-primary !py-1.5 !text-[12px] flex items-center gap-1.5"
+            onClick={() => handleExplainOptimization(false)}
+          >
+            <Sparkles className="h-3.5 w-3.5 text-electric" /> Explain Optimization
+          </button>
+        )}
       </PageHeader>
 
       <div className="grid gap-4 xl:grid-cols-4">
@@ -307,6 +344,15 @@ export default function PowerOptimizer() {
           )}
         </div>
       </div>
+
+      <AIExplanationModal
+        isOpen={aiModalOpen}
+        onClose={() => setAiModalOpen(false)}
+        response={aiResponse}
+        loading={aiLoading}
+        onRefresh={() => handleExplainOptimization(true)}
+        moduleName="Power Optimizer"
+      />
     </div>
   );
 }

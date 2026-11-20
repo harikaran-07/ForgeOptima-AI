@@ -1,11 +1,14 @@
 import { useEffect, useRef, useState } from "react";
 import clsx from "clsx";
-import { CircleStop, Flame, Play, StepForward, Thermometer } from "lucide-react";
+import { CircleStop, Flame, Play, Sparkles, StepForward, Thermometer } from "lucide-react";
 import { api } from "../lib/api";
 import { GRADES, TwinState } from "../lib/types";
 import { kwh, minutes, nf } from "../lib/format";
 import { TrendChart } from "../components/charts";
 import { Chip, ErrorBox, Field, Notice, PageHeader, Panel, Progress, Spinner } from "../components/ui";
+import { AIExplanationModal } from "../components/AIExplanationModal";
+import { explainDigitalTwinStage } from "../services/ai/digitalTwinExplainer";
+import { StructuredAIResponse } from "../services/ai/shakthiEngine";
 
 const STAGES = [
   { name: "Charging", note: "Scrap charged, power ramping" },
@@ -39,7 +42,39 @@ export default function DigitalTwin() {
   const [playing, setPlaying] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [aiModalOpen, setAiModalOpen] = useState(false);
+  const [aiResponse, setAiResponse] = useState<StructuredAIResponse | null>(null);
+  const [aiLoading, setAiLoading] = useState(false);
   const sessionRef = useRef<string | null>(null);
+
+  const handleExplainStage = async (forceRefresh = false) => {
+    setAiModalOpen(true);
+    setAiLoading(true);
+    try {
+      const currentState: TwinState = state ?? {
+        session_id: "DT-PREVIEW",
+        stage: "Intermediate Melting",
+        stage_index: 2,
+        temperature_c: 1380,
+        target_temp_c: config.target_temp_c,
+        melt_progress: 58.2,
+        power_kw: config.power_kw,
+        energy_kwh: 570,
+        elapsed_min: 18,
+        remaining_min: 14.5,
+        charge_weight_kg: config.charge_weight_kg,
+        metal_grade: config.metal_grade,
+        is_complete: false,
+        history: [],
+      };
+      const res = await explainDigitalTwinStage(currentState, forceRefresh);
+      setAiResponse(res);
+    } catch (err) {
+      console.warn("Digital Twin stage explanation error:", err);
+    } finally {
+      setAiLoading(false);
+    }
+  };
 
   const start = async () => {
     setBusy(true);
@@ -105,6 +140,12 @@ export default function DigitalTwin() {
       >
         <Chip tone="violet">SIMULATION MODEL</Chip>
         <Chip tone="neutral">No hardware control</Chip>
+        <button
+          className="btn-primary !py-1.5 !text-[12px] flex items-center gap-1.5"
+          onClick={() => handleExplainStage(false)}
+        >
+          <Sparkles className="h-3.5 w-3.5 text-electric" /> AI Stage Explanation
+        </button>
       </PageHeader>
 
       <div className="grid gap-4 xl:grid-cols-3">
@@ -384,6 +425,15 @@ export default function DigitalTwin() {
           </div>
         </Panel>
       </div>
+
+      <AIExplanationModal
+        isOpen={aiModalOpen}
+        onClose={() => setAiModalOpen(false)}
+        response={aiResponse}
+        loading={aiLoading}
+        onRefresh={() => handleExplainStage(true)}
+        moduleName="Digital Twin"
+      />
     </div>
   );
 }

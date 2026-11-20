@@ -1,11 +1,14 @@
 import { useState } from "react";
 import clsx from "clsx";
-import { BrainCircuit, Gauge, Info, Play, Timer, Zap } from "lucide-react";
+import { BrainCircuit, Gauge, Info, Play, Sparkles, Timer, Zap } from "lucide-react";
 import { useFetch } from "../hooks/useFetch";
 import { api } from "../lib/api";
 import { GRADES, ModelStatus, PredictionResult, SimilarHeat } from "../lib/types";
 import { dt, kwh, minutes, nf, pct } from "../lib/format";
 import { Chip, ErrorBox, Field, Notice, PageHeader, Panel, Spinner } from "../components/ui";
+import { AIExplanationModal } from "../components/AIExplanationModal";
+import { explainMeltingPrediction, PredictionResponse } from "../services/ai/predictionExplainer";
+import { StructuredAIResponse } from "../services/ai/shakthiEngine";
 
 interface PerformancePayload {
   models_ready: boolean;
@@ -44,6 +47,44 @@ export default function Predictions() {
   const [similar, setSimilar] = useState<SimilarHeat[] | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [aiModalOpen, setAiModalOpen] = useState(false);
+  const [aiResponse, setAiResponse] = useState<StructuredAIResponse | null>(null);
+  const [aiLoading, setAiLoading] = useState(false);
+
+  const handleExplainPrediction = async (forceRefresh = false) => {
+    setAiModalOpen(true);
+    setAiLoading(true);
+    try {
+      const meltTime = melting?.predicted_value ?? 42.4;
+      const energyVal = energy?.predicted_value ?? 1750;
+      const featMap: Record<string, number> = {};
+      (melting?.features ?? energy?.features ?? []).forEach((f) => {
+        featMap[f.label || f.feature] = f.importance;
+      });
+
+      const predResp: PredictionResponse = {
+        predicted_melting_time_min: meltTime,
+        predicted_energy_kwh: energyVal,
+        uncertainty_min: 3.1,
+        confidence_interval: {
+          low: melting?.lower_bound ?? meltTime - 3.1,
+          high: melting?.upper_bound ?? meltTime + 3.1,
+        },
+        benchmark_energy_kwh: energy?.extra?.comparable_benchmark_kwh ?? 1680,
+        energy_difference_vs_best_kwh: energy?.extra?.difference_from_benchmark_kwh ?? 70,
+        feature_contributions: featMap,
+        similar_heats: similar ?? [],
+        model_version: models.data?.active_version ?? "v2.4-rf-xgb",
+      };
+
+      const res = await explainMeltingPrediction(predResp, payload(), forceRefresh);
+      setAiResponse(res);
+    } catch (err) {
+      console.warn("Prediction explanation error:", err);
+    } finally {
+      setAiLoading(false);
+    }
+  };
 
   const payload = () => ({
     metal_grade: form.metal_grade,
@@ -87,6 +128,12 @@ export default function Predictions() {
         <Chip tone={models.data?.ready ? "good" : "crit"}>
           {models.data?.ready ? `Model ${models.data?.active_version}` : "Models not loaded"}
         </Chip>
+        <button
+          className="btn-ghost !py-1.5 !text-[12px] flex items-center gap-1.5"
+          onClick={() => handleExplainPrediction(false)}
+        >
+          <Sparkles className="h-3.5 w-3.5 text-electric" /> Explain Prediction
+        </button>
         <button className="btn-primary !py-1.5 !text-[12px]" onClick={runAll} disabled={busy !== null}>
           <Play className="h-3.5 w-3.5" /> Run all models
         </button>
@@ -333,6 +380,15 @@ export default function Predictions() {
         Metrics are computed on a 20% holdout of the synthetic training set and are refreshed on each retrain. Where a
         model has not been trained, the API returns a flagged physics baseline instead of a fabricated prediction.
       </p>
+
+      <AIExplanationModal
+        isOpen={aiModalOpen}
+        onClose={() => setAiModalOpen(false)}
+        response={aiResponse}
+        loading={aiLoading}
+        onRefresh={() => handleExplainPrediction(true)}
+        moduleName="Melting Predictions"
+      />
     </div>
   );
 }

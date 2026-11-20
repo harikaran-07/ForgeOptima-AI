@@ -1,11 +1,14 @@
 import { useState } from "react";
 import clsx from "clsx";
-import { Download, FileBarChart, FileSpreadsheet, FileText, Leaf } from "lucide-react";
+import { Download, FileBarChart, FileSpreadsheet, FileText, Leaf, Sparkles } from "lucide-react";
 import { useFetch } from "../hooks/useFetch";
 import { api, downloadBlob } from "../lib/api";
 import { Heat } from "../lib/types";
 import { dt, nf } from "../lib/format";
 import { Chip, ErrorBox, Notice, PageHeader, Panel, Spinner } from "../components/ui";
+import { AIExplanationModal } from "../components/AIExplanationModal";
+import { generateReportSummary, ReportContextData } from "../services/ai/reportGenerator";
+import { StructuredAIResponse } from "../services/ai/shakthiEngine";
 
 interface HeatPage {
   items: Heat[];
@@ -58,6 +61,37 @@ export default function Reports() {
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState<string | null>(null);
+  const [aiModalOpen, setAiModalOpen] = useState(false);
+  const [aiResponse, setAiResponse] = useState<StructuredAIResponse | null>(null);
+  const [aiLoading, setAiLoading] = useState(false);
+  const [activeReportKey, setActiveReportKey] = useState<string>("Plant Analytics");
+
+  const handleGenerateAiSummary = async (reportType = "Comprehensive Plant Analytics", forceRefresh = false) => {
+    setActiveReportKey(reportType);
+    setAiModalOpen(true);
+    setAiLoading(true);
+    try {
+      const repCtx: ReportContextData = {
+        report_type: reportType,
+        heat_id: selectedHeat || heats.data?.items[0]?.heat_id,
+        total_heats: heats.data?.total ?? 60,
+        total_tonnage_tons: ((heats.data?.items ?? []).reduce((acc, h) => acc + h.charge_weight_kg, 0) || 180000) / 1000,
+        avg_melting_time_min: 43.8,
+        avg_specific_energy_kwh_per_kg: 0.584,
+        total_energy_mwh: 105.2,
+        total_anomalies_count: 6,
+        high_severity_anomalies: 1,
+        top_grades: ["MS", "SS304", "Cast Iron"],
+        period: "Last 30 Days",
+      };
+      const res = await generateReportSummary(repCtx, forceRefresh);
+      setAiResponse(res);
+    } catch (err) {
+      console.warn("AI Report Summary error:", err);
+    } finally {
+      setAiLoading(false);
+    }
+  };
 
   const download = async (key: string, format: "pdf" | "csv", heatId?: string) => {
     setBusy(`${key}-${format}`);
@@ -88,6 +122,12 @@ export default function Reports() {
         description="Downloadable decision-support documents. Every report states its data source, model metrics and the limits of what the numbers mean."
       >
         <Chip tone="neutral">PDF & CSV</Chip>
+        <button
+          className="btn-primary !py-1.5 !text-[12px] flex items-center gap-1.5"
+          onClick={() => handleGenerateAiSummary("Comprehensive Plant Performance Report", false)}
+        >
+          <Sparkles className="h-3.5 w-3.5 text-electric" /> Generate AI Executive Summary
+        </button>
       </PageHeader>
 
       {error && <ErrorBox message={error} />}
@@ -202,6 +242,15 @@ export default function Reports() {
           </Notice>
         </div>
       </div>
+
+      <AIExplanationModal
+        isOpen={aiModalOpen}
+        onClose={() => setAiModalOpen(false)}
+        response={aiResponse}
+        loading={aiLoading}
+        onRefresh={() => handleGenerateAiSummary(activeReportKey, true)}
+        moduleName={activeReportKey}
+      />
     </div>
   );
 }

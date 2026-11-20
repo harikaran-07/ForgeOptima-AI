@@ -1,12 +1,15 @@
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowRight, Building2, Download, Leaf, TrendingUp, Zap } from "lucide-react";
+import { ArrowRight, Building2, Download, Leaf, Sparkles, TrendingUp, Zap } from "lucide-react";
 import { useFetch } from "../hooks/useFetch";
 import { api, downloadBlob } from "../lib/api";
 import { EnergyPayload } from "../lib/types";
 import { kwh, nf, pct, signed } from "../lib/format";
 import { MiniBarChart, TrendChart } from "../components/charts";
 import { Chip, ErrorBox, Kpi, Notice, PageHeader, Panel, Progress, Spinner } from "../components/ui";
+import { AIExplanationModal } from "../components/AIExplanationModal";
+import { analyzeEnergyIntelligence, EnergyContextData } from "../services/ai/energyAnalyzer";
+import { StructuredAIResponse } from "../services/ai/shakthiEngine";
 
 type Granularity = "day" | "week" | "month";
 
@@ -15,7 +18,34 @@ export default function EnergyIntelligence() {
   const [days, setDays] = useState(30);
   const [improvement, setImprovement] = useState(5);
   const [downloadError, setDownloadError] = useState<string | null>(null);
+  const [aiModalOpen, setAiModalOpen] = useState(false);
+  const [aiResponse, setAiResponse] = useState<StructuredAIResponse | null>(null);
+  const [aiLoading, setAiLoading] = useState(false);
   const navigate = useNavigate();
+
+  const handleAiEnergyAnalysis = async (forceRefresh = false) => {
+    if (!data) return;
+    setAiModalOpen(true);
+    setAiLoading(true);
+    try {
+      const energyCtx: EnergyContextData = {
+        total_energy_kwh: data.summary.total_energy_kwh,
+        charge_weight_kg: data.summary.total_charge_kg,
+        specific_energy_kwh_per_kg: data.summary.avg_energy_per_kg,
+        benchmark_kwh_per_kg: 0.548,
+        efficiency_score: data.summary.avg_efficiency_score,
+        holding_energy_waste_kwh: data.summary.total_energy_kwh * 0.045,
+        carbon_footprint_kg: data.summary.co2_kg,
+        grid_emission_factor: data.summary.emission_factor,
+      };
+      const res = await analyzeEnergyIntelligence(energyCtx, forceRefresh);
+      setAiResponse(res);
+    } catch (err) {
+      console.warn("AI Energy Analysis error:", err);
+    } finally {
+      setAiLoading(false);
+    }
+  };
 
   const { data, error, loading, reload } = useFetch<EnergyPayload>(
     `/analytics/energy?days=${days}&granularity=${granularity}`,
@@ -62,10 +92,16 @@ export default function EnergyIntelligence() {
           <option value={90}>Last 90 days</option>
           <option value={180}>Last 180 days</option>
         </select>
+        <button
+          className="btn-primary !py-1.5 !text-[12px] flex items-center gap-1.5"
+          onClick={() => handleAiEnergyAnalysis(false)}
+        >
+          <Sparkles className="h-3.5 w-3.5 text-electric" /> AI Energy Analysis
+        </button>
         <button className="btn-ghost !py-1.5 !text-[12px]" onClick={() => exportReport("csv")}>
           <Download className="h-3.5 w-3.5" /> CSV
         </button>
-        <button className="btn-primary !py-1.5 !text-[12px]" onClick={() => exportReport("pdf")}>
+        <button className="btn-ghost !py-1.5 !text-[12px]" onClick={() => exportReport("pdf")}>
           <Download className="h-3.5 w-3.5" /> PDF report
         </button>
       </PageHeader>
@@ -283,6 +319,15 @@ export default function EnergyIntelligence() {
           Reporting window {s.period.from} → {s.period.to} · total charge {nf(s.total_charge_kg)} kg · {kwh(s.total_energy_kwh)}.
         </p>
       </Panel>
+
+      <AIExplanationModal
+        isOpen={aiModalOpen}
+        onClose={() => setAiModalOpen(false)}
+        response={aiResponse}
+        loading={aiLoading}
+        onRefresh={() => handleAiEnergyAnalysis(true)}
+        moduleName="Energy Intelligence"
+      />
     </div>
   );
 }

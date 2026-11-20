@@ -1,11 +1,14 @@
 import { useState } from "react";
 import clsx from "clsx";
-import { AlertTriangle, Check, ChevronDown, Radar, ScanSearch, ShieldAlert } from "lucide-react";
+import { AlertTriangle, Check, ChevronDown, Radar, ScanSearch, ShieldAlert, Sparkles } from "lucide-react";
 import { useFetch } from "../hooks/useFetch";
 import { api } from "../lib/api";
 import { Anomaly } from "../lib/types";
 import { dt, nf, signed } from "../lib/format";
 import { Chip, ErrorBox, Notice, PageHeader, Panel, SeverityChip, Spinner } from "../components/ui";
+import { AIExplanationModal } from "../components/AIExplanationModal";
+import { explainAnomalyRecord } from "../services/ai/anomalyExplainer";
+import { StructuredAIResponse } from "../services/ai/shakthiEngine";
 
 interface Summary {
   counts: { LOW: number; MEDIUM: number; HIGH: number };
@@ -30,6 +33,24 @@ export default function Anomalies() {
   const [busy, setBusy] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [selectedAlert, setSelectedAlert] = useState<Anomaly | null>(null);
+  const [aiModalOpen, setAiModalOpen] = useState(false);
+  const [aiResponse, setAiResponse] = useState<StructuredAIResponse | null>(null);
+  const [aiLoading, setAiLoading] = useState(false);
+
+  const handleExplainAnomaly = async (alert: Anomaly, forceRefresh = false) => {
+    setSelectedAlert(alert);
+    setAiModalOpen(true);
+    setAiLoading(true);
+    try {
+      const res = await explainAnomalyRecord(alert, forceRefresh);
+      setAiResponse(res);
+    } catch (err) {
+      console.warn("AI Anomaly explanation error:", err);
+    } finally {
+      setAiLoading(false);
+    }
+  };
 
   const anomalies = useFetch<Anomaly[]>(`/anomalies${severity ? `?severity=${severity}` : "?limit=200"}`, {
     deps: [severity],
@@ -167,11 +188,19 @@ export default function Anomalies() {
                         <p className="text-[9.5px] uppercase tracking-wide text-ink-500">Suggested inspection</p>
                         <p className="mt-0.5 text-[11.5px] leading-relaxed text-ink-200">{alert.suggested_action}</p>
                       </div>
-                      {!alert.acknowledged && (
-                        <button className="btn-ghost mt-2 !py-1 !text-[11px]" onClick={() => acknowledge(alert.id)}>
-                          <Check className="h-3 w-3" /> Acknowledge
+                      <div className="mt-2.5 flex items-center gap-2">
+                        <button
+                          className="btn-primary !py-1 !text-[11px] flex items-center gap-1.5"
+                          onClick={() => handleExplainAnomaly(alert)}
+                        >
+                          <Sparkles className="h-3 w-3 text-electric" /> Explain Anomaly
                         </button>
-                      )}
+                        {!alert.acknowledged && (
+                          <button className="btn-ghost !py-1 !text-[11px]" onClick={() => acknowledge(alert.id)}>
+                            <Check className="h-3 w-3" /> Acknowledge
+                          </button>
+                        )}
+                      </div>
                     </div>
                   )}
                 </div>
@@ -255,6 +284,15 @@ export default function Anomalies() {
           </Panel>
         </div>
       </div>
+
+      <AIExplanationModal
+        isOpen={aiModalOpen}
+        onClose={() => setAiModalOpen(false)}
+        response={aiResponse}
+        loading={aiLoading}
+        onRefresh={() => selectedAlert && handleExplainAnomaly(selectedAlert, true)}
+        moduleName="Anomaly Detection"
+      />
     </div>
   );
 }
