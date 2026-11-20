@@ -127,7 +127,7 @@ export function VercelBackendStatusBadge() {
           )}
         </span>
 
-        <span className="font-semibold text-white">Vercel API:</span>
+        <span className="font-semibold text-white">API:</span>
 
         {status === "online" ? (
           <span className="mono font-semibold text-emerald-bright">
@@ -153,7 +153,7 @@ export function VercelBackendStatusBadge() {
                 </div>
                 <div>
                   <h3 className="text-[13.5px] font-bold text-white uppercase tracking-wider">
-                    Vercel Serverless Backend
+                    API Infrastructure Status
                   </h3>
                   <p className="text-[10.5px] text-ink-400 font-mono">
                     forge-optima-ai.vercel.app/api

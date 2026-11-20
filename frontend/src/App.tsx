@@ -25,6 +25,8 @@ export default function App() {
         <Route path="/anomalies" element={<Anomalies />} />
         <Route path="/history" element={<HeatHistory />} />
         <Route path="/history/:heatId" element={<HeatHistory />} />
+        <Route path="/heats" element={<HeatHistory />} />
+        <Route path="/heats/:heatId" element={<HeatHistory />} />
         <Route path="/shakthi-ai" element={<ShakthiAI />} />
         <Route path="/sakthi-copilot" element={<ShakthiAI />} />
         <Route path="/copilot" element={<ShakthiAI />} />
