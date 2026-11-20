@@ -48,16 +48,21 @@ export default function handler(req, res) {
     if (!pathname.startsWith("/")) pathname = "/" + pathname;
     if (pathname === "" || pathname === "/") pathname = "/health";
 
-  // Parse JSON body if present
-  let body = req.body;
-  if (typeof body === "string") {
+    // Parse JSON body if present safely without triggering getter throw
+    let body = {};
     try {
-      body = JSON.parse(body);
+      body = req.body;
     } catch {
       body = {};
     }
-  }
-  body = body || {};
+    if (typeof body === "string") {
+      try {
+        body = JSON.parse(body);
+      } catch {
+        body = {};
+      }
+    }
+    body = body || {};
 
   // Standard metallurgical baseline data
   const now = new Date();
