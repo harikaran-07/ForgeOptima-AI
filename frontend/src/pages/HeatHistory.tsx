@@ -104,8 +104,8 @@ export default function HeatHistory() {
         title="Heat History & Grade Intelligence"
         description={`Filter and inspect every stored heat — ${nf(options.data?.total_heats ?? 0)} records. Each heat keeps its full trace, model comparison and report downloads.`}
       >
-        <Chip tone="neutral">{options.data?.grades.length ?? 0} grades</Chip>
-        <Chip tone="cyan">{options.data?.sources.join(" · ") || "—"}</Chip>
+        <Chip tone="neutral">{options.data?.grades?.length ?? 0} grades</Chip>
+        <Chip tone="cyan">{options.data?.sources?.join(" · ") || "—"}</Chip>
       </PageHeader>
 
       <Panel

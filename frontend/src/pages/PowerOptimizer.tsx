@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
+import clsx from "clsx";
 import { ArrowDownRight, ArrowUpRight, Gauge, Scale, ShieldCheck, Sparkles } from "lucide-react";
 import { useFetch } from "../hooks/useFetch";
 import { api } from "../lib/api";
 import { GRADES, Optimization } from "../lib/types";
 import { kwh, minutes, nf, signed } from "../lib/format";
 import { TrendChart } from "../components/charts";
-import { Chip, ErrorBox, Field, Notice, PageHeader, Panel, Spinner } from "../components/ui";
+import { Chip, Field, Notice, PageHeader, Panel, Spinner } from "../components/ui";
 import { AIExplanationModal } from "../components/AIExplanationModal";
 import { explainOptimizationResult } from "../services/ai/optimizerExplainer";
 import { StructuredAIResponse } from "../services/ai/shakthiEngine";
@@ -62,19 +63,27 @@ export default function PowerOptimizer() {
   const minPower = limits?.min_power_kw ?? 350;
   const maxPower = limits?.max_power_kw ?? 3200;
 
+  const weightValid = form.charge_weight_kg >= 100 && form.charge_weight_kg <= (limits?.capacity_kg ?? 5000);
+  const curPowerValid = form.current_power_kw >= minPower && form.current_power_kw <= maxPower;
+  const altPowerValid = form.alternative_power_kw >= minPower && form.alternative_power_kw <= maxPower;
+  const initTempValid = form.initial_temp_c >= 0;
+  const targetTempValid = form.target_temp_c > form.initial_temp_c && form.target_temp_c <= 1800;
+  const formValid = weightValid && curPowerValid && altPowerValid && initTempValid && targetTempValid;
+
   useEffect(() => {
     const reference = context.data?.reference_profiles.find((p) => p.metal_grade === form.metal_grade);
     if (reference) {
       setForm((prev) => ({
         ...prev,
         current_power_kw: Math.round(reference.reference.power_kw),
-        alternative_power_kw: Math.round(reference.reference.power_kw * 1.12),
+        alternative_power_kw: Math.round(reference.reference.power_kw * 1.05),
       }));
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [context.data, form.metal_grade]);
 
   const analyze = async () => {
+    if (!formValid) return;
     setBusy(true);
     setError(null);
     try {
@@ -135,15 +144,39 @@ export default function PowerOptimizer() {
                 ))}
               </select>
             </Field>
-            <Field label="Charge (kg)">
-              <input type="number" className="input" value={form.charge_weight_kg} onChange={(e) => setForm({ ...form, charge_weight_kg: Number(e.target.value) })} />
+            <Field label="Charge (kg)" hint={!weightValid ? `100–${limits?.capacity_kg ?? 5000} kg` : undefined}>
+              <input
+                type="number"
+                min={100}
+                max={limits?.capacity_kg ?? 5000}
+                step={50}
+                className={clsx("input", !weightValid && "!border-red-500")}
+                value={form.charge_weight_kg}
+                onChange={(e) => setForm({ ...form, charge_weight_kg: Number(e.target.value) })}
+              />
             </Field>
             <div className="grid grid-cols-2 gap-2">
-              <Field label="Initial (°C)">
-                <input type="number" className="input" value={form.initial_temp_c} onChange={(e) => setForm({ ...form, initial_temp_c: Number(e.target.value) })} />
+              <Field label="Initial (°C)" hint={!initTempValid ? ">= 0 °C" : undefined}>
+                <input
+                  type="number"
+                  min={0}
+                  max={1000}
+                  step={1}
+                  className={clsx("input", !initTempValid && "!border-red-500")}
+                  value={form.initial_temp_c}
+                  onChange={(e) => setForm({ ...form, initial_temp_c: Number(e.target.value) })}
+                />
               </Field>
-              <Field label="Target (°C)">
-                <input type="number" className="input" value={form.target_temp_c} onChange={(e) => setForm({ ...form, target_temp_c: Number(e.target.value) })} />
+              <Field label="Target (°C)" hint={!targetTempValid ? `> ${form.initial_temp_c} & <= 1800` : undefined}>
+                <input
+                  type="number"
+                  min={1000}
+                  max={1800}
+                  step={10}
+                  className={clsx("input", !targetTempValid && "!border-red-500")}
+                  value={form.target_temp_c}
+                  onChange={(e) => setForm({ ...form, target_temp_c: Number(e.target.value) })}
+                />
               </Field>
             </div>
 
@@ -175,11 +208,11 @@ export default function PowerOptimizer() {
                 className="mt-1.5 w-full accent-[#34D399]"
               />
               <p className="mt-2 text-[10px] leading-relaxed text-ink-500">
-                Sliders are bounded by the furnace envelope. Requests outside these limits are clipped by the API.
+                Sliders are bounded by the furnace envelope ({minPower}–{maxPower} kW).
               </p>
             </div>
 
-            <button className="btn-primary w-full" onClick={analyze} disabled={busy || !context.data?.models_ready}>
+            <button className="btn-primary w-full" onClick={analyze} disabled={busy || !context.data?.models_ready || !formValid}>
               <Scale className="h-3.5 w-3.5" /> Run what-if analysis
             </button>
             {!context.data?.models_ready && (
@@ -199,7 +232,17 @@ export default function PowerOptimizer() {
 
         <div className="space-y-4 xl:col-span-3">
           {busy && <Spinner label="Simulating alternative profile…" />}
-          {error && <ErrorBox message={error} />}
+          {error && (
+            <div className="flex items-center justify-between gap-3 rounded-lg border border-red-500/40 bg-red-500/10 p-3.5 text-red-300">
+              <div className="text-[12px] leading-relaxed">{error}</div>
+              <button
+                className="btn-ghost !py-1 !px-3 !text-[11px] shrink-0 border border-red-400/40 text-red-200 hover:bg-red-500/20"
+                onClick={analyze}
+              >
+                Retry
+              </button>
+            </div>
+          )}
 
           {!result && !busy && (
             <Panel title="Current vs alternative" subtitle="Awaiting scenario">
@@ -288,7 +331,7 @@ export default function PowerOptimizer() {
               <div className="grid gap-4 xl:grid-cols-5">
                 <Panel className="xl:col-span-3" title="Recommendations" subtitle="Explanations generated from the model comparison">
                   <ul className="space-y-2">
-                    {result.recommendations.map((rec) => (
+                    {(result.recommendations ?? []).map((rec) => (
                       <li key={rec} className="flex gap-2 rounded-lg border border-base-700/70 bg-base-900/40 px-3 py-2 text-[12px] leading-relaxed text-ink-300">
                         <Gauge className="mt-0.5 h-3.5 w-3.5 shrink-0 text-electric" />
                         {rec}
@@ -298,7 +341,7 @@ export default function PowerOptimizer() {
                   <div className="mt-3">
                     <Notice tone="crit" title="Safety — read before acting">
                       <ul className="mt-1 space-y-1">
-                        {result.safety_notes.map((note) => (
+                        {(result.safety_notes ?? []).map((note) => (
                           <li key={note} className="flex gap-1.5">
                             <ShieldCheck className="mt-0.5 h-3 w-3 shrink-0" />
                             {note}
@@ -321,7 +364,7 @@ export default function PowerOptimizer() {
                         </tr>
                       </thead>
                       <tbody>
-                        {result.evidence.map((item) => (
+                        {(result.evidence ?? []).map((item) => (
                           <tr key={item.heat_id} className="row-hover border-b border-base-700/40 last:border-0">
                             <td className="td mono text-[11.5px]">{item.heat_id}</td>
                             <td className="td mono text-right">{nf(item.power_kw)}</td>

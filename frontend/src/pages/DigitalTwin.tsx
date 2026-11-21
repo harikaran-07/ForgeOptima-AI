@@ -5,18 +5,17 @@ import { api } from "../lib/api";
 import { GRADES, TwinState } from "../lib/types";
 import { kwh, minutes, nf } from "../lib/format";
 import { TrendChart } from "../components/charts";
-import { Chip, ErrorBox, Field, Notice, PageHeader, Panel, Progress, Spinner } from "../components/ui";
+import { Chip, Field, Notice, PageHeader, Panel, Progress, Spinner } from "../components/ui";
 import { AIExplanationModal } from "../components/AIExplanationModal";
 import { explainDigitalTwinStage } from "../services/ai/digitalTwinExplainer";
 import { StructuredAIResponse } from "../services/ai/shakthiEngine";
 
 const STAGES = [
-  { name: "Charging", note: "Scrap charged, power ramping" },
-  { name: "Initial Heating", note: "Solid metal heating to melting point" },
-  { name: "Intermediate Melting", note: "Latent heat absorbed, pool forming" },
-  { name: "Complete Melting", note: "Full liquid pool, superheat begins" },
-  { name: "Temperature Adjustment", note: "Thermal lag closing on target" },
-  { name: "Target Temperature Reached", note: "Ready for tapping / holding" },
+  { name: "Cold Charge", note: "Solid scrap charged, coil inductive coupling ramp-up" },
+  { name: "Inductive Coupling", note: "Electromagnetic eddy current heating below Curie point" },
+  { name: "Curie Transition", note: "Loss of ferromagnetism, bulk solid softening" },
+  { name: "Mushy Melting", note: "Latent heat absorption and liquid metal pool forming" },
+  { name: "Superheating", note: "Full liquid bath superheating to target tapping setpoint" },
 ];
 
 const tempColor = (t: number, target: number) => {
@@ -31,13 +30,19 @@ const tempColor = (t: number, target: number) => {
 export default function DigitalTwin() {
   const [config, setConfig] = useState({
     metal_grade: "MS",
-    charge_weight_kg: 3000,
-    initial_temp_c: 35,
-    target_temp_c: 1550,
-    power_kw: 1900,
+    charge_weight_kg: 5000,
+    initial_temp_c: 28,
+    target_temp_c: 1520,
+    power_kw: 3000,
     efficiency: 0.72,
-    time_step_min: 1,
+    time_step_min: 2.5,
   });
+
+  const weightValid = config.charge_weight_kg >= 100 && config.charge_weight_kg <= 5000;
+  const powerValid = config.power_kw >= 350 && config.power_kw <= 3200;
+  const initTempValid = config.initial_temp_c >= 0;
+  const targetTempValid = config.target_temp_c > config.initial_temp_c && config.target_temp_c <= 1800;
+  const configValid = weightValid && powerValid && initTempValid && targetTempValid;
   const [state, setState] = useState<TwinState | null>(null);
   const [playing, setPlaying] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -301,19 +306,51 @@ export default function DigitalTwin() {
                 </select>
               </Field>
               <div className="grid grid-cols-2 gap-2">
-                <Field label="Charge (kg)">
-                  <input type="number" className="input" value={config.charge_weight_kg} onChange={(e) => setConfig({ ...config, charge_weight_kg: Number(e.target.value) })} />
+                <Field label="Charge (kg)" hint={!weightValid ? "100–5000 kg" : undefined}>
+                  <input
+                    type="number"
+                    min={100}
+                    max={5000}
+                    step={50}
+                    className={clsx("input", !weightValid && "!border-red-500")}
+                    value={config.charge_weight_kg}
+                    onChange={(e) => setConfig({ ...config, charge_weight_kg: Number(e.target.value) })}
+                  />
                 </Field>
-                <Field label="Power (kW)">
-                  <input type="number" className="input" value={config.power_kw} onChange={(e) => setConfig({ ...config, power_kw: Number(e.target.value) })} />
+                <Field label="Power (kW)" hint={!powerValid ? "350–3200 kW" : undefined}>
+                  <input
+                    type="number"
+                    min={350}
+                    max={3200}
+                    step={10}
+                    className={clsx("input", !powerValid && "!border-red-500")}
+                    value={config.power_kw}
+                    onChange={(e) => setConfig({ ...config, power_kw: Number(e.target.value) })}
+                  />
                 </Field>
               </div>
               <div className="grid grid-cols-2 gap-2">
-                <Field label="Initial (°C)">
-                  <input type="number" className="input" value={config.initial_temp_c} onChange={(e) => setConfig({ ...config, initial_temp_c: Number(e.target.value) })} />
+                <Field label="Initial (°C)" hint={!initTempValid ? ">= 0 °C" : undefined}>
+                  <input
+                    type="number"
+                    min={0}
+                    max={1000}
+                    step={1}
+                    className={clsx("input", !initTempValid && "!border-red-500")}
+                    value={config.initial_temp_c}
+                    onChange={(e) => setConfig({ ...config, initial_temp_c: Number(e.target.value) })}
+                  />
                 </Field>
-                <Field label="Target (°C)">
-                  <input type="number" className="input" value={config.target_temp_c} onChange={(e) => setConfig({ ...config, target_temp_c: Number(e.target.value) })} />
+                <Field label="Target (°C)" hint={!targetTempValid ? `> ${config.initial_temp_c} & <= 1800` : undefined}>
+                  <input
+                    type="number"
+                    min={1000}
+                    max={1800}
+                    step={10}
+                    className={clsx("input", !targetTempValid && "!border-red-500")}
+                    value={config.target_temp_c}
+                    onChange={(e) => setConfig({ ...config, target_temp_c: Number(e.target.value) })}
+                  />
                 </Field>
               </div>
               <div className="grid grid-cols-2 gap-2">
@@ -326,12 +363,12 @@ export default function DigitalTwin() {
               </div>
 
               <div className="grid grid-cols-2 gap-2 pt-1">
-                <button className="btn-primary" onClick={start} disabled={busy}>
+                <button className="btn-primary" onClick={start} disabled={busy || !configValid}>
                   <Play className="h-3.5 w-3.5" /> {state ? "Restart" : "Start heat"}
                 </button>
                 <button
                   className="btn-ghost"
-                  disabled={!state || state.is_complete}
+                  disabled={!state || state.is_complete || !configValid}
                   onClick={() => setPlaying((v) => !v)}
                 >
                   {playing ? <CircleStop className="h-3.5 w-3.5" /> : <Play className="h-3.5 w-3.5" />}
@@ -345,7 +382,17 @@ export default function DigitalTwin() {
                 </button>
               </div>
               {busy && <Spinner label="Initialising session…" />}
-              {error && <ErrorBox message={error} />}
+              {error && (
+                <div className="flex items-center justify-between gap-3 rounded-lg border border-red-500/40 bg-red-500/10 p-3.5 text-red-300">
+                  <div className="text-[12px] leading-relaxed">{error}</div>
+                  <button
+                    className="btn-ghost !py-1 !px-3 !text-[11px] shrink-0 border border-red-400/40 text-red-200 hover:bg-red-500/20"
+                    onClick={start}
+                  >
+                    Retry
+                  </button>
+                </div>
+              )}
             </div>
           </Panel>
 

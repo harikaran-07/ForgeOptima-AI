@@ -212,12 +212,12 @@ export default function Settings() {
           <div className="space-y-2">
             <div className="flex items-center justify-between text-[11.5px]">
               <span className="text-ink-400">Active version</span>
-              <span className="mono text-ink-100">{s.models.version}</span>
+              <span className="mono text-ink-100">{s?.models?.version ?? "2026.11-ml-v2"}</span>
             </div>
             <div className="flex items-center justify-between text-[11.5px]">
               <span className="text-ink-400">Last retrain</span>
               <span className="mono text-[11px] text-ink-300">
-                {s.runtime.last_retrain_at ? dt(s.runtime.last_retrain_at) : "seed run"}
+                {s?.runtime?.last_retrain_at ? dt(s.runtime.last_retrain_at) : "seed run"}
               </span>
             </div>
             <button className="btn-ghost mt-1 w-full !py-1.5 !text-[11.5px]" onClick={runRetrain} disabled={retraining}>

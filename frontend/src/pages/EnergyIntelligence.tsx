@@ -139,7 +139,7 @@ export default function EnergyIntelligence() {
           }
         >
           <TrendChart
-            data={data.series}
+            data={data.series ?? []}
             xKey="label"
             xUnit=""
             yUnit="kWh"
@@ -151,7 +151,7 @@ export default function EnergyIntelligence() {
           />
           <div className="mt-3">
             <MiniBarChart
-              data={data.series.slice(-14)}
+              data={(data.series ?? []).slice(-14)}
               xKey="label"
               yUnit="kWh/kg"
               height={160}
@@ -223,11 +223,11 @@ export default function EnergyIntelligence() {
 
       <div className="grid gap-4 xl:grid-cols-5">
         <Panel className="xl:col-span-3" title="Energy waste detection" subtitle="Heats exceeding the grade benchmark by more than 6%">
-          {data.waste_findings.length === 0 ? (
+          {(data.waste_findings ?? []).length === 0 ? (
             <p className="py-14 text-center text-[12px] text-ink-500">No heats exceeded the benchmark threshold.</p>
           ) : (
             <div className="space-y-2">
-              {data.waste_findings.map((finding) => (
+              {(data.waste_findings ?? []).map((finding) => (
                 <div key={finding.heat_id} className="rounded-lg border border-warn/25 bg-warn/[0.05] px-3 py-2.5">
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <div className="flex items-center gap-2">

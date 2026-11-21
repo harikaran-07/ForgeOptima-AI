@@ -5,7 +5,7 @@ import { useFetch } from "../hooks/useFetch";
 import { api } from "../lib/api";
 import { GRADES, ModelStatus, PredictionResult, SimilarHeat } from "../lib/types";
 import { dt, kwh, minutes, nf, pct } from "../lib/format";
-import { Chip, ErrorBox, Field, Notice, PageHeader, Panel, Spinner } from "../components/ui";
+import { Chip, Field, Notice, PageHeader, Panel, Spinner } from "../components/ui";
 import { AIExplanationModal } from "../components/AIExplanationModal";
 import { explainMeltingPrediction, PredictionResponse } from "../services/ai/predictionExplainer";
 import { StructuredAIResponse } from "../services/ai/shakthiEngine";
@@ -86,6 +86,12 @@ export default function Predictions() {
     }
   };
 
+  const weightValid = form.charge_weight_kg >= 100 && form.charge_weight_kg <= 5000;
+  const powerValid = form.power_kw >= 350 && form.power_kw <= 3200;
+  const initialValid = form.initial_temp_c >= 0;
+  const targetValid = form.target_temp_c > form.initial_temp_c && form.target_temp_c <= 1800;
+  const formValid = weightValid && powerValid && initialValid && targetValid;
+
   const payload = () => ({
     metal_grade: form.metal_grade,
     charge_weight_kg: form.charge_weight_kg,
@@ -98,6 +104,7 @@ export default function Predictions() {
   });
 
   const run = async (kind: "melting" | "energy" | "target" | "similar") => {
+    if (!formValid) return;
     setBusy(kind);
     setError(null);
     try {
@@ -113,6 +120,7 @@ export default function Predictions() {
   };
 
   const runAll = async () => {
+    if (!formValid) return;
     for (const kind of ["melting", "energy", "target", "similar"] as const) {
       await run(kind);
     }
@@ -134,7 +142,7 @@ export default function Predictions() {
         >
           <Sparkles className="h-3.5 w-3.5 text-electric" /> Explain Prediction
         </button>
-        <button className="btn-primary !py-1.5 !text-[12px]" onClick={runAll} disabled={busy !== null}>
+        <button className="btn-primary !py-1.5 !text-[12px]" onClick={runAll} disabled={busy !== null || !formValid}>
           <Play className="h-3.5 w-3.5" /> Run all models
         </button>
       </PageHeader>
@@ -150,32 +158,66 @@ export default function Predictions() {
               </select>
             </Field>
             <div className="grid grid-cols-2 gap-2">
-              <Field label="Charge (kg)">
-                <input type="number" className="input" value={form.charge_weight_kg} onChange={(e) => setForm({ ...form, charge_weight_kg: Number(e.target.value) })} />
+              <Field label="Charge (kg)" hint={!weightValid ? "100–5000 kg" : undefined}>
+                <input
+                  type="number"
+                  min={100}
+                  max={5000}
+                  step={50}
+                  className={clsx("input", !weightValid && "!border-red-500")}
+                  value={form.charge_weight_kg}
+                  onChange={(e) => setForm({ ...form, charge_weight_kg: Number(e.target.value) })}
+                />
               </Field>
-              <Field label="Power (kW)">
-                <input type="number" className="input" value={form.power_kw} onChange={(e) => setForm({ ...form, power_kw: Number(e.target.value) })} />
+              <Field label="Power (kW)" hint={!powerValid ? "350–3200 kW" : undefined}>
+                <input
+                  type="number"
+                  min={350}
+                  max={3200}
+                  step={10}
+                  className={clsx("input", !powerValid && "!border-red-500")}
+                  value={form.power_kw}
+                  onChange={(e) => setForm({ ...form, power_kw: Number(e.target.value) })}
+                />
               </Field>
             </div>
             <div className="grid grid-cols-2 gap-2">
-              <Field label="Initial (°C)">
-                <input type="number" className="input" value={form.initial_temp_c} onChange={(e) => setForm({ ...form, initial_temp_c: Number(e.target.value) })} />
+              <Field label="Initial (°C)" hint={!initialValid ? ">= 0 °C" : undefined}>
+                <input
+                  type="number"
+                  min={0}
+                  max={1000}
+                  step={1}
+                  className={clsx("input", !initialValid && "!border-red-500")}
+                  value={form.initial_temp_c}
+                  onChange={(e) => setForm({ ...form, initial_temp_c: Number(e.target.value) })}
+                />
               </Field>
-              <Field label="Target (°C)">
-                <input type="number" className="input" value={form.target_temp_c} onChange={(e) => setForm({ ...form, target_temp_c: Number(e.target.value) })} />
+              <Field label="Target (°C)" hint={!targetValid ? `> ${form.initial_temp_c} & <= 1800` : undefined}>
+                <input
+                  type="number"
+                  min={1000}
+                  max={1800}
+                  step={10}
+                  className={clsx("input", !targetValid && "!border-red-500")}
+                  value={form.target_temp_c}
+                  onChange={(e) => setForm({ ...form, target_temp_c: Number(e.target.value) })}
+                />
               </Field>
             </div>
             <div className="grid grid-cols-2 gap-2">
               <Field label="Elapsed (min)">
-                <input type="number" className="input" value={form.elapsed_min} onChange={(e) => setForm({ ...form, elapsed_min: Number(e.target.value) })} />
+                <input type="number" min={0} max={180} step={1} className="input" value={form.elapsed_min} onChange={(e) => setForm({ ...form, elapsed_min: Number(e.target.value) })} />
               </Field>
               <Field label="Ambient (°C)">
-                <input type="number" className="input" value={form.ambient_temp_c} onChange={(e) => setForm({ ...form, ambient_temp_c: Number(e.target.value) })} />
+                <input type="number" min={-20} max={60} step={1} className="input" value={form.ambient_temp_c} onChange={(e) => setForm({ ...form, ambient_temp_c: Number(e.target.value) })} />
               </Field>
             </div>
             <Field label="Current temperature (°C)" hint="Optional — improves time-to-target accuracy">
               <input
                 type="number"
+                min={0}
+                max={1800}
                 className="input"
                 placeholder="auto from elapsed"
                 value={form.temperature_now_c}
@@ -184,16 +226,16 @@ export default function Predictions() {
             </Field>
 
             <div className="grid gap-2 pt-1">
-              <button className="btn-primary" onClick={() => run("melting")} disabled={busy !== null}>
+              <button className="btn-primary" onClick={() => run("melting")} disabled={busy !== null || !formValid}>
                 <Timer className="h-3.5 w-3.5" /> Predict melting time
               </button>
-              <button className="btn-ghost" onClick={() => run("energy")} disabled={busy !== null}>
+              <button className="btn-ghost" onClick={() => run("energy")} disabled={busy !== null || !formValid}>
                 <Zap className="h-3.5 w-3.5" /> Predict energy
               </button>
-              <button className="btn-ghost" onClick={() => run("target")} disabled={busy !== null}>
+              <button className="btn-ghost" onClick={() => run("target")} disabled={busy !== null || !formValid}>
                 <Gauge className="h-3.5 w-3.5" /> Time to target
               </button>
-              <button className="btn-ghost" onClick={() => run("similar")} disabled={busy !== null}>
+              <button className="btn-ghost" onClick={() => run("similar")} disabled={busy !== null || !formValid}>
                 <BrainCircuit className="h-3.5 w-3.5" /> Similar heats
               </button>
             </div>
@@ -201,7 +243,17 @@ export default function Predictions() {
         </Panel>
 
         <div className="space-y-4 xl:col-span-3">
-          {error && <ErrorBox message={error} />}
+          {error && (
+            <div className="flex items-center justify-between gap-3 rounded-lg border border-red-500/40 bg-red-500/10 p-3.5 text-red-300">
+              <div className="text-[12px] leading-relaxed">{error}</div>
+              <button
+                className="btn-ghost !py-1 !px-3 !text-[11px] shrink-0 border border-red-400/40 text-red-200 hover:bg-red-500/20"
+                onClick={runAll}
+              >
+                Retry
+              </button>
+            </div>
+          )}
           {!models.data?.ready && (
             <Notice tone="crit" title="Models unavailable">
               No trained artifacts were found. Run <span className="mono">python -m scripts.seed</span> or retrain from
@@ -448,7 +500,7 @@ function PredictionCard({
               {result.baseline_reason}
             </Notice>
           )}
-          {result.caveats.length > 0 && (
+          {(result.caveats?.length ?? 0) > 0 && (
             <p className="text-[10px] leading-relaxed text-ink-600">{result.caveats[0]}</p>
           )}
           <p className="text-[9.5px] text-ink-600">{dt(new Date().toISOString())}</p>

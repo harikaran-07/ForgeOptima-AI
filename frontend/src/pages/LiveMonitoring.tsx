@@ -389,7 +389,7 @@ export default function LiveMonitoring() {
                           <td className="td mono text-right">{nf(r.melt_progress, 1)}%</td>
                         </tr>
                       ))}
-                      {!readings.data?.readings.length && (
+                      {!readings.data?.readings?.length && (
                         <tr>
                           <td className="td text-ink-500" colSpan={8}>
                             No readings yet.

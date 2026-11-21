@@ -215,6 +215,15 @@ export default function Layout() {
             <Chip tone="good">
               {dataMode === "simulated" ? "SIMULATED TELEMETRY" : "PLANT SENSORS CONNECTED"}
             </Chip>
+
+            {/* API Connection Status indicator */}
+            <div className="hidden sm:inline-flex items-center gap-1.5 rounded-lg border border-[#24513F] bg-[#10231D] px-2.5 py-1 text-[11px] font-medium text-[#ECFDF5]" title="Backend API Connection Status">
+              <span className={clsx("h-2 w-2 rounded-full", status.error ? "bg-red-500 animate-pulse" : "bg-[#10B981]")} />
+              <span className="text-[#9CB8AA]">API:</span>
+              <span className={status.error ? "text-red-400 font-semibold" : "text-[#ECFDF5] font-semibold"}>
+                {status.error ? "Offline" : "Online"}
+              </span>
+            </div>
           </div>
 
           {/* Right section: Sakthi Copilot Badge, Temperature, Clock, Alerts, Profile */}

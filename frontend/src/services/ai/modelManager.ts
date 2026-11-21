@@ -10,16 +10,24 @@
  * - Download cancellation via AbortController
  */
 
-import {
-  CreateMLCEngine,
+import type {
   MLCEngine,
-  prebuiltAppConfig,
-  hasModelInCache,
-  deleteModelAllInfoInCache,
   InitProgressReport,
   AppConfig,
 } from "@mlc-ai/web-llm";
 import { generateClientGroundedResponse } from "../../lib/aiReasoning";
+
+let webllmPromise: Promise<typeof import("@mlc-ai/web-llm")> | null = null;
+
+/**
+ * Lazy loads the @mlc-ai/web-llm module on demand so initial page loads do not fetch the ~6MB bundle.
+ */
+export async function getWebLLM() {
+  if (!webllmPromise) {
+    webllmPromise = import("@mlc-ai/web-llm");
+  }
+  return webllmPromise;
+}
 
 export const PRIMARY_MODEL_ID = "Qwen2.5-0.5B-Instruct-q4f16_1-MLC";
 export const FALLBACK_MODEL_ID = "Qwen2.5-0.5B-Instruct-q4f32_1-MLC";
@@ -285,6 +293,7 @@ export async function requestPersistentStorage(): Promise<boolean> {
  */
 export async function getCachedModelId(): Promise<string | null> {
   try {
+    const { hasModelInCache, prebuiltAppConfig } = await getWebLLM();
     const primary = await hasModelInCache(PRIMARY_MODEL_ID, prebuiltAppConfig);
     if (primary) return PRIMARY_MODEL_ID;
     const fallback = await hasModelInCache(FALLBACK_MODEL_ID, prebuiltAppConfig);
@@ -308,6 +317,7 @@ export async function deleteQwenModelCache(): Promise<void> {
     if (engineInstance) {
       await unloadEngine();
     }
+    const { deleteModelAllInfoInCache, prebuiltAppConfig } = await getWebLLM();
     await deleteModelAllInfoInCache(PRIMARY_MODEL_ID, prebuiltAppConfig);
     await deleteModelAllInfoInCache(FALLBACK_MODEL_ID, prebuiltAppConfig);
 
@@ -381,6 +391,8 @@ export async function loadQwenModel(
   };
   onProgress?.(startReport);
   notifyListeners(initialState, startReport);
+
+  const { CreateMLCEngine, prebuiltAppConfig } = await getWebLLM();
 
   const customAppConfig: AppConfig = {
     ...prebuiltAppConfig,
